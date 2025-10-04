@@ -11,9 +11,8 @@
 
 ## 📋 Project Description
 
-Point Of Sales simulator
-
-This repository contains the source code and documentation for the POS simulator project, developed as part of the UE23CS341A course at PES University.
+Social media management software
+An integrated app to handle all accounts on different social media like WhatsApp, X, Facebook, etc
 
 ## 🧑‍💻 Development Team (WECODE)
 
