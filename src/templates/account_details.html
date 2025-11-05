@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Account Details | SMMS</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body class="bg-gray-50 min-h-screen font-sans">
+
+  <!-- Sidebar (same as before) -->
+  <aside class="sidebar">
+    <div>
+      <h1 class="sidebar-title">SMMS</h1>
+      <nav>
+        <a href="#" class="nav-item">Dashboard</a>
+        <a href="#" class="nav-item">Post Scheduler</a>
+        <a href="#" class="nav-item">Analytics</a>
+        <a href="#" class="nav-item">Team Collaboration</a>
+        <a href="/linked-accounts" class="nav-item active">Linked Accounts</a>
+        <a href="#" class="nav-item">Notifications</a>
+        <a href="#" class="nav-item">Settings</a>
+      </nav>
+    </div>
+    <a href="#" class="logout">Logout</a>
+  </aside>
+
+  <!-- Main -->
+  <main class="ml-64 p-8">
+    <div class="mb-6">
+      <a href="/linked-accounts" class="text-blue-600 hover:underline">← Back to Linked Accounts</a>
+    </div>
+
+    <h2 class="text-2xl font-semibold mb-6">Account Details</h2>
+
+    <div class="card max-w-2xl">
+      <h3 class="text-xl font-semibold mb-4">{{ account.account_username }}</h3>
+      
+      <div class="space-y-3">
+        <div class="flex justify-between py-2 border-b">
+          <span class="font-medium text-gray-600">Platform:</span>
+          <span>{{ account.platform_name }}</span>
+        </div>
+        
+        <div class="flex justify-between py-2 border-b">
+          <span class="font-medium text-gray-600">Username:</span>
+          <span>{{ account.account_username }}</span>
+        </div>
+        
+        <div class="flex justify-between py-2 border-b">
+          <span class="font-medium text-gray-600">Linked At:</span>
+          <span>{{ account.linked_at.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+        </div>
+        
+        <div class="flex justify-between py-2 border-b">
+          <span class="font-medium text-gray-600">Connection Status:</span>
+          <span class="badge-green">{{ account.has_token and 'Active' or 'Inactive' }}</span>
+        </div>
+        
+        <div class="flex justify-between py-2">
+          <span class="font-medium text-gray-600">Access Token:</span>
+          <span class="text-sm text-gray-500">{{ account.token_preview }}</span>
+        </div>
+      </div>
+
+      <div class="flex space-x-3 mt-6">
+        <a href="/refresh-account/{{ account.account_id }}" class="btn-primary">Refresh</a>
+        <a href="/disconnect-account/{{ account.account_id }}" 
+           class="btn-outline text-red-600"
+           onclick="return confirm('Are you sure?')">
+          Disconnect
+        </a>
+      </div>
+    </div>
+  </main>
+
+</body>
+</html>

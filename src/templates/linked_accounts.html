@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Linked Accounts | SMMS</title>
+
+  <!-- Tailwind CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body class="bg-gray-50 min-h-screen font-sans">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div>
+      <h1 class="sidebar-title">SMMS</h1>
+      <nav>
+        <a href="#" class="nav-item">Dashboard</a>
+        <a href="#" class="nav-item">Post Scheduler</a>
+        <a href="#" class="nav-item">Analytics</a>
+        <a href="#" class="nav-item">Team Collaboration</a>
+        <a href="/linked-accounts" class="nav-item active">Linked Accounts</a>
+        <a href="#" class="nav-item">Notifications</a>
+        <a href="#" class="nav-item">Settings</a>
+      </nav>
+    </div>
+    <a href="#" class="logout">Logout</a>
+  </aside>
+
+  <!-- Main -->
+  <main class="ml-64 p-8">
+    <div class="flex justify-between items-center mb-6">
+      <h2 class="text-2xl font-semibold">Linked Accounts</h2>
+
+      <!-- Dropdown -->
+      <div class="relative inline-block text-left">
+        <button id="linkDropdownButton" class="btn-primary flex items-center space-x-2">
+          <span>+ Link New Account</span>
+          <svg class="w-4 h-4 transform" id="dropdownArrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+
+        <!-- Dropdown menu -->
+        <div id="dropdownMenu" class="hidden absolute right-0 mt-2 w-44 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+          <a href="/connect/linkedin" class="block px-4 py-2 hover:bg-gray-100 text-gray-700 flex items-center space-x-2">
+            <img src="https://cdn-icons-png.flaticon.com/512/174/174857.png" class="w-4 h-4" alt="LinkedIn logo">
+            <span>LinkedIn</span>
+          </a>
+
+          <a href="/connect/twitter" class="block px-4 py-2 hover:bg-gray-100 text-gray-700 flex items-center space-x-2">
+            <img src="https://cdn-icons-png.flaticon.com/512/733/733579.png" class="w-4 h-4" alt="Twitter logo">
+            <span>Twitter</span>
+          </a>
+
+          <a href="#" class="block px-4 py-2 text-gray-400 cursor-not-allowed flex items-center space-x-2">
+            <img src="https://cdn-icons-png.flaticon.com/512/5968/5968906.png" class="w-4 h-4 opacity-50" alt="Medium logo">
+            <span>Medium (Coming Soon)</span>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <p class="text-gray-500 mb-8">Manage your connected social media platforms</p>
+
+    <!-- Accounts grid -->
+    <div class="grid grid-cols-2 gap-6">
+      {% for account in accounts %}
+        <div class="card">
+          <!-- Platform Icon & Status -->
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center space-x-3">
+              {% if account.platform_name == 'LinkedIn' %}
+                <div class="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-xl">
+                  in
+                </div>
+              {% elif account.platform_name == 'Twitter' %}
+                <div class="w-12 h-12 bg-blue-400 rounded-lg flex items-center justify-center text-white font-bold text-xl">
+                  𝕏
+                </div>
+              {% else %}
+                <div class="w-12 h-12 bg-gray-400 rounded-lg flex items-center justify-center text-white font-bold text-xl">
+                  ?
+                </div>
+              {% endif %}
+            </div>
+            <span class="badge badge-green">Connected</span>
+          </div>
+
+          <!-- Account Info -->
+          <h3 class="text-xl font-semibold mb-1">{{ account.platform_name }}</h3>
+          <p class="text-gray-600 mb-4">{{ account.account_username }}</p>
+
+          <!-- Stats Section - Only for Twitter -->
+          {% if account.show_stats %}
+          <div class="grid grid-cols-3 gap-4 mb-4 py-4 border-t border-b border-gray-200">
+            <div class="text-center">
+              <p class="text-gray-500 text-sm mb-1">Followers</p>
+              <p class="text-2xl font-bold">{{ "{:,}".format(account.follower_count) if account.follower_count else '0' }}</p>
+            </div>
+            <div class="text-center">
+              <p class="text-gray-500 text-sm mb-1">Posts</p>
+              <p class="text-2xl font-bold">{{ "{:,}".format(account.post_count) if account.post_count else '0' }}</p>
+            </div>
+            <div class="text-center">
+              <p class="text-gray-500 text-sm mb-1">Last sync</p>
+              <p class="text-lg font-semibold">
+                {% if account.last_synced %}
+                  {% set diff = (now - account.last_synced).total_seconds() %}
+                  {% if diff < 60 %}
+                    Just now
+                  {% elif diff < 3600 %}
+                    {{ (diff / 60) | int }} min ago
+                  {% elif diff < 86400 %}
+                    {{ (diff / 3600) | int }} hr ago
+                  {% else %}
+                    {{ (diff / 86400) | int }} days ago
+                  {% endif %}
+                {% else %}
+                  Never
+                {% endif %}
+              </p>
+            </div>
+          </div>
+          {% else %}
+          <!-- For LinkedIn - no stats message -->
+          <div class="py-4 mb-4 border-t border-b border-gray-200">
+            <p class="text-gray-400 text-center text-sm">📊 Detailed stats not available for this platform</p>
+          </div>
+          {% endif %}
+
+          <!-- Action Buttons -->
+          <div class="flex space-x-3">
+            <a href="/refresh-account/{{ account.account_id }}" class="btn-outline flex-1 text-center">Refresh</a>
+            <a href="/disconnect-account/{{ account.account_id }}" 
+               class="btn-outline flex-1 text-center text-red-600 hover:bg-red-50"
+               onclick="return confirm('Are you sure you want to disconnect this account?')">
+              Disconnect
+            </a>
+            <a href="/account-details/{{ account.account_id }}" class="btn-outline flex-1 text-center">View Details</a>
+          </div>
+        </div>
+      {% else %}
+        <div class="col-span-2 text-center py-12">
+          <div class="text-6xl mb-4">🔗</div>
+          <h3 class="text-xl font-semibold text-gray-700 mb-2">No linked accounts yet</h3>
+          <p class="text-gray-500 mb-6">Connect your social media accounts to get started</p>
+          <button onclick="document.getElementById('linkDropdownButton').click()" class="btn-primary">
+            + Link Your First Account
+          </button>
+        </div>
+      {% endfor %}
+    </div>
+  </main>
+
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
