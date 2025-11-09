@@ -91,15 +91,11 @@ jobs:
 
       - name: Initialize database
         run: |
-          if compgen -G "database/*.sql" > /dev/null; then
-            for file in database/*.sql; do
-              echo "⏳ Applying $file"
-              mysql -h 127.0.0.1 -uroot -proot smms_db < "$file"
-            done
-            echo "✅ All database schemas initialized."
-          else
-            echo "⚠️ No SQL files found in database/ — skipping DB initialization"
-          fi
+          echo "Initializing database with schema files..."
+          mysql -h 127.0.0.1 -uroot -proot smms_db < database/schema_users.sql
+          mysql -h 127.0.0.1 -uroot -proot smms_db < database/post_platform.sql
+          mysql -h 127.0.0.1 -uroot -proot smms_db < database/notif_db.sql
+          echo "✅ Database initialized successfully!"
 
       - name: Run tests
         env:
@@ -112,7 +108,7 @@ jobs:
           pytest --maxfail=1 --disable-warnings -q
 
   # =============================
-  # 3️⃣ COVERAGE STAGE (FIXED)
+  # 3️⃣ COVERAGE STAGE
   # =============================
   coverage:
     name: Coverage Stage
