@@ -4,8 +4,8 @@
 -- ======================================================
 
 -- Create the database if it doesn't exist
-CREATE DATABASE IF NOT EXISTS smms;
-USE smms;
+CREATE DATABASE IF NOT EXISTS smms_db;
+USE smms_db;
 
 -- ===========================
 -- Table: user
