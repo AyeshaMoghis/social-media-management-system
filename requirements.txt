@@ -5,3 +5,8 @@ requests
 PyMySQL
 Werkzeug
 tweepy
+pytest 
+pytest-flask 
+flask-testing
+pytest-mock
+pytest-cov
