@@ -49,7 +49,7 @@ jobs:
         image: mysql:8.0
         env:
           MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: smms_db
+          MYSQL_DATABASE: smms
         ports:
           - 3306:3306
         options: >-
