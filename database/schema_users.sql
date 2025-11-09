@@ -116,9 +116,6 @@ CREATE TABLE IF NOT EXISTS oauth_state (
 INSERT INTO platform (platform_name, api_endpoint, is_active)
 VALUES
     ('LinkedIn', 'https://api.linkedin.com/v2/ugcPosts', TRUE),
-    ('Medium', 'https://api.medium.com/v1/users/{{userId}}/posts', TRUE)
-    ('Twitter','https://api.twitter.com/2',TRUE)
-ON DUPLICATE KEY UPDATE
-    platform_name = VALUES(platform_name),
-    api_endpoint = VALUES(api_endpoint),
-    is_active = VALUES(is_active);
+    ('Medium', 'https://api.medium.com/v1/users/{{userId}}/posts', TRUE),
+    ('Twitter', 'https://api.twitter.com/2', TRUE);
+
