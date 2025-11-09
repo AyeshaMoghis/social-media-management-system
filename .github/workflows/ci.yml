@@ -29,11 +29,13 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
       - name: Verify build
         run: |
           echo "Verifying Flask API build..."
           python -m compileall src || exit 1
           echo "✅ Build completed successfully."
+
   # =============================
   # 2️⃣ TEST STAGE
   # =============================
@@ -55,6 +57,7 @@ jobs:
           --health-interval=10s
           --health-timeout=5s
           --health-retries=3
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -68,11 +71,13 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y mysql-client
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install pytest
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
       - name: Wait for MySQL
         run: |
           for i in {1..20}; do
@@ -83,17 +88,28 @@ jobs:
             echo "Waiting for MySQL ($i)..."
             sleep 3
           done
-- name: Initialize database
-  run: |
-    if compgen -G "database/*.sql" > /dev/null; then
-      for file in database/*.sql; do
-        echo "⏳ Applying $file"
-        mysql -h 127.0.0.1 -uroot -proot smms_db < "$file"
-      done
-      echo "✅ All database schemas initialized."
-    else
-      echo "⚠️ No SQL files found in database/ — skipping DB initialization"
-    fi
+
+      - name: Initialize database
+        run: |
+          if compgen -G "database/*.sql" > /dev/null; then
+            for file in database/*.sql; do
+              echo "⏳ Applying $file"
+              mysql -h 127.0.0.1 -uroot -proot smms_db < "$file"
+            done
+            echo "✅ All database schemas initialized."
+          else
+            echo "⚠️ No SQL files found in database/ — skipping DB initialization"
+          fi
+
+      - name: Run tests
+        env:
+          MYSQL_HOST: 127.0.0.1
+          MYSQL_USER: root
+          MYSQL_PASSWORD: root
+          MYSQL_DB: smms_db
+        run: |
+          echo "Running tests..."
+          pytest --maxfail=1 --disable-warnings -q
 
   # =============================
   # 3️⃣ COVERAGE STAGE (FIXED)
@@ -130,7 +146,6 @@ jobs:
           name: coverage-report
           path: htmlcov/
 
-
   # =============================
   # 4️⃣ LINT STAGE
   # =============================
@@ -158,6 +173,7 @@ jobs:
             echo "❌ Lint score below threshold (7.5)"
             exit 1
           fi
+
       - name: Upload pylint report
         uses: actions/upload-artifact@v4
         with:
@@ -185,11 +201,13 @@ jobs:
           pip install bandit
           echo "Running Bandit security scan..."
           bandit -r . -f html -o bandit-report.html || true
+
       - name: Run dependency audit
         run: |
           pip install pip-audit
           echo "Running pip-audit for dependencies..."
           pip-audit -r requirements.txt -f json > dependency-audit.json || true
+
       - name: Upload security reports
         uses: actions/upload-artifact@v4
         with:
