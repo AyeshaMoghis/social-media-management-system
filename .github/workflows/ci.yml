@@ -92,6 +92,11 @@ jobs:
 
       - name: Initialize database
         run: |
+          echo "Ensuring both smms and smms_db exist..."
+          mysql -h 127.0.0.1 -uroot -proot -e "CREATE DATABASE IF NOT EXISTS smms;"
+          mysql -h 127.0.0.1 -uroot -proot -e "CREATE DATABASE IF NOT EXISTS smms_db;"
+          echo "✅ Databases ensured."
+
           echo "Initializing database with all schema files..."
           for file in database/*.sql; do
             echo "Importing $file..."
