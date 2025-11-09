@@ -92,9 +92,9 @@ jobs:
       - name: Initialize database
         run: |
           echo "Initializing database with schema files..."
-          mysql -h 127.0.0.1 -uroot -proot smms_db < database/schema_users.sql
-          mysql -h 127.0.0.1 -uroot -proot smms_db < database/post_platform.sql
-          mysql -h 127.0.0.1 -uroot -proot smms_db < database/notif_db.sql
+          mysql -h 127.0.0.1 -uroot -proot smms < database/schema_users.sql
+          mysql -h 127.0.0.1 -uroot -proot smms < database/post_platform.sql
+          mysql -h 127.0.0.1 -uroot -proot smms < database/notif_db.sql
           echo "✅ Database initialized successfully!"
 
       - name: Run tests
@@ -102,7 +102,7 @@ jobs:
           MYSQL_HOST: 127.0.0.1
           MYSQL_USER: root
           MYSQL_PASSWORD: root
-          MYSQL_DB: smms_db
+          MYSQL_DB: smms
         run: |
           echo "Running tests..."
           pytest --maxfail=1 --disable-warnings -q
