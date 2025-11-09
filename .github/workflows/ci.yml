@@ -29,14 +29,11 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-
       - name: Verify build
         run: |
           echo "Verifying Flask API build..."
           python -m compileall src || exit 1
           echo "✅ Build completed successfully."
-
-
   # =============================
   # 2️⃣ TEST STAGE (SQLite)
   # =============================
@@ -58,7 +55,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install pytest
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-
       - name: Run tests (SQLite)
         env:
           TESTING: true
@@ -66,8 +62,6 @@ jobs:
         run: |
           echo "Running tests using SQLite..."
           pytest --maxfail=1 --disable-warnings -q
-
-
   # =============================
   # 3️⃣ COVERAGE STAGE
   # =============================
@@ -89,14 +83,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install pytest coverage
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-
       - name: Run coverage
         run: |
           echo "Running coverage analysis..."
           coverage run -m pytest
           coverage report -m --fail-under=75
           coverage html
-
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
         with:
@@ -131,7 +123,6 @@ jobs:
             echo "❌ Lint score below threshold (7.5)"
             exit 1
           fi
-
       - name: Upload pylint report
         uses: actions/upload-artifact@v4
         with:
@@ -160,13 +151,11 @@ jobs:
           pip install bandit
           echo "Running Bandit security scan..."
           bandit -r . -f html -o bandit-report.html || true
-
       - name: Run dependency audit
         run: |
           pip install pip-audit
           echo "Running pip-audit for dependencies..."
           pip-audit -r requirements.txt -f json > dependency-audit.json || true
-
       - name: Upload security reports
         uses: actions/upload-artifact@v4
         with:
