@@ -1,8 +1,12 @@
 """
 Social Media Management System - Flask Application
-Handles OAuth authentication for Twitter and LinkedIn platforms
+Handles OAuth authentication for Twitter and LinkedIn platforms,
+and integrates authentication + role-based dashboards.
 """
+
+# ---------------------------
 # Standard library imports
+# ---------------------------
 import os
 import secrets
 import hashlib
@@ -11,8 +15,13 @@ import json
 from datetime import datetime, timedelta
 from urllib.parse import urlencode
 
+# ---------------------------
 # Third-party imports
-from flask import Flask, render_template, redirect, url_for, session, request
+# ---------------------------
+from flask import (
+    Flask, render_template, redirect, url_for,
+    session, request, flash
+)
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 import requests
@@ -24,44 +33,38 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', secrets.token_hex(32))
 
-# Session configuration - FIXED for better reliability
+# Session configuration
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_SECURE'] = False
 app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour
+app.config['PERMANENT_SESSION_LIFETIME'] = 3600
 app.config['SESSION_TYPE'] = 'filesystem'
 
-# ========================================
-# DATABASE CONFIGURATION - TESTING SUPPORT
-# ========================================
-# CRITICAL: Check if we're in test mode FIRST
+# ---------------------------
+# DATABASE CONFIGURATION
+# ---------------------------
 if os.environ.get('TESTING') == 'true':
-    # Use SQLite in-memory for tests
     print("🧪 TEST MODE: Using SQLite in-memory database")
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
     app.config['TESTING'] = True
-    app.config['WTF_CSRF_ENABLED'] = False
 else:
-    # Use MySQL for production
     user = os.getenv('MYSQL_USER', 'root')
     pw = os.getenv('MYSQL_PASSWORD', '')
     host = os.getenv('MYSQL_HOST', '127.0.0.1')
     db_name = os.getenv('MYSQL_DB', 'smms')
-
-    app.config['SQLALCHEMY_DATABASE_URI'] = (
-        f'mysql+pymysql://{user}:{pw}@{host}/{db_name}'
-    )
-    print(f"🚀 PRODUCTION MODE: Using MySQL database: {db_name}")
+    app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{user}:{pw}@{host}/{db_name}'
+    print(f"🚀 Using MySQL database: {db_name}")
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 dbs = SQLAlchemy(app)
 
-# LinkedIn OAuth
+# ---------------------------
+# OAUTH CONFIG
+# ---------------------------
 LINKEDIN_CLIENT_ID = os.getenv('LINKEDIN_CLIENT_ID')
 LINKEDIN_CLIENT_SECRET = os.getenv('LINKEDIN_CLIENT_SECRET')
 LINKEDIN_REDIRECT_URI = os.getenv('LINKEDIN_REDIRECT_URI')
 
-# Twitter OAuth
 TWITTER_CLIENT_ID = os.getenv('TWITTER_CLIENT_ID')
 TWITTER_CLIENT_SECRET = os.getenv('TWITTER_CLIENT_SECRET')
 TWITTER_REDIRECT_URI = os.getenv('TWITTER_REDIRECT_URI')
@@ -71,15 +74,15 @@ TWITTER_REDIRECT_URI = os.getenv('TWITTER_REDIRECT_URI')
 # DATABASE MODELS
 # ---------------------------
 class User(dbs.Model):
-    """User model - stores user accounts"""
     __tablename__ = 'user'
     user_id = dbs.Column(dbs.Integer, primary_key=True)
     email = dbs.Column(dbs.String(100), unique=True, nullable=False)
+    full_name = dbs.Column(dbs.String(100))
+    role = dbs.Column(dbs.String(20), default='user')
     created_at = dbs.Column(dbs.DateTime, default=datetime.utcnow)
 
 
 class Platform(dbs.Model):
-    """Platform model - stores social media platform info"""
     __tablename__ = 'platform'
     platform_id = dbs.Column(dbs.Integer, primary_key=True)
     platform_name = dbs.Column(dbs.String(50), nullable=False)
@@ -88,7 +91,6 @@ class Platform(dbs.Model):
 
 
 class LinkedAccount(dbs.Model):
-    """LinkedAccount model - stores connected social media accounts"""
     __tablename__ = 'linked_account'
     account_id = dbs.Column(dbs.Integer, primary_key=True)
     user_id = dbs.Column(dbs.Integer, dbs.ForeignKey('user.user_id'))
@@ -103,12 +105,11 @@ class LinkedAccount(dbs.Model):
 
 
 class OAuthState(dbs.Model):
-    """Store OAuth state temporarily in database instead of session"""
     __tablename__ = 'oauth_state'
     state_id = dbs.Column(dbs.String(100), primary_key=True)
     user_id = dbs.Column(dbs.Integer, nullable=False)
     platform = dbs.Column(dbs.String(50), nullable=False)
-    code_verifier = dbs.Column(dbs.String(200))  # For PKCE
+    code_verifier = dbs.Column(dbs.String(200))
     created_at = dbs.Column(dbs.DateTime, default=datetime.utcnow)
 
 
@@ -121,18 +122,20 @@ def current_user():
     uid = session.get('user_id')
 
     if uid:
-        retrieved_user = dbs.session.get(User, uid)
-        if retrieved_user:
-            return retrieved_user
+        user = dbs.session.get(User, uid)
+        if user:
+            return user
 
-    retrieved_user = User.query.first()
-    if not retrieved_user:
-        retrieved_user = User(email="demo@user.com")
-        dbs.session.add(retrieved_user)
+    user = User.query.first()
+    if not user:
+        user = User(email="demo@user.com", full_name="Demo User")
+        dbs.session.add(user)
         dbs.session.commit()
 
-    session['user_id'] = retrieved_user.user_id
-    return retrieved_user
+    session['user_id'] = user.user_id
+    session['full_name'] = user.full_name
+    session['role'] = user.role
+    return user
 
 
 def cleanup_old_oauth_states():
@@ -143,14 +146,54 @@ def cleanup_old_oauth_states():
 
 
 # ---------------------------
-# ROUTES
+# IMPORT AUTH BLUEPRINT
+# ---------------------------
+from src.auth import auth
+app.register_blueprint(auth)
+
+
+# ---------------------------
+# ROLE-BASED DASHBOARDS
 # ---------------------------
 @app.route('/')
 def home():
-    """Redirect to linked accounts page"""
+    """Landing page redirects based on session."""
+    if 'user_id' not in session:
+        return redirect(url_for('auth.login'))
+    return redirect(url_for('dashboard_redirect'))
+
+
+@app.route('/dashboard')
+def dashboard_redirect():
+    """Redirect user to their role dashboard."""
+    if 'user_id' not in session:
+        return redirect(url_for('auth.login'))
+    if session.get('role') == 'manager':
+        return redirect(url_for('manager_dashboard'))
     return redirect(url_for('linked_accounts'))
 
 
+@app.route('/dashboard/user')
+def user_dashboard():
+    """Redirects user dashboard → Linked Accounts."""
+    if 'user_id' not in session or session.get('role') != 'user':
+        flash("Access denied — Users only.", "danger")
+        return redirect(url_for('auth.login'))
+    return redirect(url_for('linked_accounts'))
+
+
+@app.route('/dashboard/manager')
+def manager_dashboard():
+    """Simple Manager Dashboard Page"""
+    if 'user_id' not in session or session.get('role') != 'manager':
+        flash("Access denied — Managers only.", "danger")
+        return redirect(url_for('auth.login'))
+    return render_template('manager_dashboard.html', name=session.get('full_name'))
+
+
+# ---------------------------
+# LINKED ACCOUNTS DASHBOARD
+# ---------------------------
 @app.route('/linked-accounts')
 def linked_accounts():
     """Display all linked social media accounts for current user"""
@@ -161,29 +204,19 @@ def linked_accounts():
     for acc in accounts:
         platform = dbs.session.get(Platform, acc.platform_id)
         platform_name = platform.platform_name if platform else 'Unknown'
-
-        # Only show stats for Twitter (not LinkedIn - requires special API access)
         show_stats = platform_name.lower() in ['twitter', 'x']
 
-        account_data = {
+        account_list.append({
             'account_id': acc.account_id,
             'platform_name': platform_name,
             'account_username': acc.account_username,
             'linked_at': acc.linked_at,
+            'follower_count': acc.follower_count,  # Remove the condition here
+            'post_count': acc.post_count,          # Remove the condition here
             'is_connected': bool(acc.access_token),
-            'show_stats': show_stats,
-            'last_synced': acc.last_synced
-        }
-
-        # Add stats only for Twitter
-        if show_stats:
-            account_data['follower_count'] = acc.follower_count
-            account_data['post_count'] = acc.post_count
-        else:
-            account_data['follower_count'] = None
-            account_data['post_count'] = None
-
-        account_list.append(account_data)
+            'last_synced': acc.last_synced,
+            'show_stats': show_stats               # ADD THIS LINE - was missing!
+        })
 
     return render_template(
         'linked_accounts.html',
@@ -191,8 +224,6 @@ def linked_accounts():
         accounts=account_list,
         now=datetime.utcnow()
     )
-
-
 # ---------------------------
 # LINKEDIN AUTH
 # ---------------------------
@@ -629,8 +660,12 @@ def account_details(account_id):
     return render_template('account_details.html', account=details, user=active_user)
 
 
+if not os.getenv('TESTING'):
+    with app.app_context():
+        dbs.create_all()
+        print("✅ Database tables created/verified")
 # ---------------------------
-# RUN
+# RUN SERVER
 # ---------------------------
 if __name__ == '__main__':
     with app.app_context():
