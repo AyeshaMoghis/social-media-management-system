@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Login | SMMS</title>
+  <!-- Link your static CSS file -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+
+<body>
+  <div class="container">
+    
+    <!-- Left Info Panel -->
+    <div class="left-panel">
+      <h1>Manage all your<br>social media from<br>one place 🌐</h1>
+      <p>Schedule posts, analyze performance, and collaborate with your team.</p>
+    </div>
+
+    <!-- Right Form Panel -->
+    <div class="right-panel">
+
+      <!-- ✅ Flash message display -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="flash-messages">
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }}">
+                {{ message }}
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      <form method="POST" action="{{ url_for('auth.login') }}">
+        <h2>Welcome Back</h2>
+        
+        <input type="email" name="email" placeholder="you@example.com" required>
+        <input type="password" name="password" placeholder="Enter your password" required>
+
+        <button type="submit">Sign In</button>
+
+        <p>Don’t have an account? 
+          <a href="{{ url_for('auth.signup') }}">Sign up here</a>
+        </p>
+      </form>
+    </div>
+  </div>
+</body>
+</html>
+x
