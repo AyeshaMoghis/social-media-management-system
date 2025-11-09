@@ -83,18 +83,18 @@ jobs:
             echo "Waiting for MySQL ($i)..."
             sleep 3
           done
-      - name: Initialize database
-        run: |
-          mysql -h 127.0.0.1 -uroot -proot smms_db < schema.sql
-      - name: Run tests
-        env:
-          MYSQL_HOST: 127.0.0.1
-          MYSQL_USER: root
-          MYSQL_PASSWORD: root
-          MYSQL_DB: smms_db
-        run: |
-          echo "Running tests..."
-          pytest --maxfail=1 --disable-warnings -q
+- name: Initialize database
+  run: |
+    if compgen -G "database/*.sql" > /dev/null; then
+      for file in database/*.sql; do
+        echo "⏳ Applying $file"
+        mysql -h 127.0.0.1 -uroot -proot smms_db < "$file"
+      done
+      echo "✅ All database schemas initialized."
+    else
+      echo "⚠️ No SQL files found in database/ — skipping DB initialization"
+    fi
+
   # =============================
   # 3️⃣ COVERAGE STAGE (FIXED)
   # =============================
