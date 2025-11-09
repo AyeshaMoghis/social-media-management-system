@@ -15,7 +15,7 @@ sys.path.insert(0, str(project_root))
 sys.path.insert(0, str(src_dir))
 
 # NOW import after environment is set
-from app import app, dbs
+from app import app, dbs as db
 import pytest
 
 
