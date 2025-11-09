@@ -3,7 +3,7 @@
 -- User Story 3.4: Notify user after post is published or fails
 -- ============================================================
 
-USE smms;
+USE smms_db;
 
 -- ============================================================
 -- TABLES
