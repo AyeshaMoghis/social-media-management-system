@@ -10,3 +10,4 @@ pytest-flask
 flask-testing
 pytest-mock
 pytest-cov
+mysql-connector-python
