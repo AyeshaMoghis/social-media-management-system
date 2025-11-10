@@ -10,11 +10,8 @@ def client():
 
 
 def test_home_page(client):
-    """Home route should redirect unauthenticated users to login."""
-    response = client.get('/', follow_redirects=False)
-    assert response.status_code == 302
-    assert '/login' in response.headers['Location']
-
+    response = client.get('/')
+    assert b"Welcome to SMMS" in response.data
 
 
 def test_access_manager_dashboard_requires_login(client):
