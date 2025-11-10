@@ -1,12 +1,8 @@
 """
 Social Media Management System - Flask Application
-Handles OAuth authentication for Twitter and LinkedIn platforms,
-and integrates authentication + role-based dashboards.
+Integrates authentication + social media OAuth connections
 """
-
-# ---------------------------
 # Standard library imports
-# ---------------------------
 import os
 import secrets
 import hashlib
@@ -15,13 +11,8 @@ import json
 from datetime import datetime, timedelta
 from urllib.parse import urlencode
 
-# ---------------------------
 # Third-party imports
-# ---------------------------
-from flask import (
-    Flask, render_template, redirect, url_for,
-    session, request, flash
-)
+from flask import Flask, render_template, redirect, url_for, session, request, flash
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 import requests
@@ -117,25 +108,11 @@ class OAuthState(dbs.Model):
 # HELPER FUNCTIONS
 # ---------------------------
 def current_user():
-    """Ensures a user always exists and is stored in session."""
-    session.permanent = True
-    uid = session.get('user_id')
-
-    if uid:
-        user = dbs.session.get(User, uid)
-        if user:
-            return user
-
-    user = User.query.first()
-    if not user:
-        user = User(email="demo@user.com", full_name="Demo User")
-        dbs.session.add(user)
-        dbs.session.commit()
-
-    session['user_id'] = user.user_id
-    session['full_name'] = user.full_name
-    session['role'] = user.role
-    return user
+    """Get current logged-in user from session"""
+    user_id = session.get('user_id')
+    if user_id:
+        return dbs.session.get(User, user_id)
+    return None
 
 
 def cleanup_old_oauth_states():
@@ -148,34 +125,33 @@ def cleanup_old_oauth_states():
 # ---------------------------
 # IMPORT AUTH BLUEPRINT
 # ---------------------------
+# Import auth blueprint from root folder
 from src.auth import auth
 app.register_blueprint(auth)
 
 
 # ---------------------------
-# ROLE-BASED DASHBOARDS
+# MAIN ROUTES
 # ---------------------------
 @app.route('/')
 def home():
-    """Landing page redirects based on session."""
+    """Landing page - redirects based on login status"""
     if 'user_id' not in session:
         return redirect(url_for('auth.login'))
-    return redirect(url_for('dashboard_redirect'))
-
-
-@app.route('/dashboard')
-def dashboard_redirect():
-    """Redirect user to their role dashboard."""
-    if 'user_id' not in session:
-        return redirect(url_for('auth.login'))
+    
+    # User is logged in - redirect to their dashboard
     if session.get('role') == 'manager':
         return redirect(url_for('manager_dashboard'))
-    return redirect(url_for('linked_accounts'))
+    else:
+        return redirect(url_for('linked_accounts'))
 
 
+# ---------------------------
+# ROLE-BASED DASHBOARDS
+# ---------------------------
 @app.route('/dashboard/user')
 def user_dashboard():
-    """Redirects user dashboard → Linked Accounts."""
+    """User dashboard - redirects to linked accounts"""
     if 'user_id' not in session or session.get('role') != 'user':
         flash("Access denied — Users only.", "danger")
         return redirect(url_for('auth.login'))
@@ -184,7 +160,7 @@ def user_dashboard():
 
 @app.route('/dashboard/manager')
 def manager_dashboard():
-    """Simple Manager Dashboard Page"""
+    """Manager Dashboard Page"""
     if 'user_id' not in session or session.get('role') != 'manager':
         flash("Access denied — Managers only.", "danger")
         return redirect(url_for('auth.login'))
@@ -192,13 +168,21 @@ def manager_dashboard():
 
 
 # ---------------------------
-# LINKED ACCOUNTS DASHBOARD
+# LINKED ACCOUNTS PAGE
 # ---------------------------
 @app.route('/linked-accounts')
 def linked_accounts():
     """Display all linked social media accounts for current user"""
-    active_user = current_user()
-    accounts = LinkedAccount.query.filter_by(user_id=active_user.user_id).all()
+    if 'user_id' not in session:
+        return redirect(url_for('auth.login'))
+    
+    user_id = session['user_id']
+    user = dbs.session.get(User, user_id)
+    
+    if not user:
+        return redirect(url_for('auth.login'))
+    
+    accounts = LinkedAccount.query.filter_by(user_id=user.user_id).all()
 
     account_list = []
     for acc in accounts:
@@ -211,26 +195,38 @@ def linked_accounts():
             'platform_name': platform_name,
             'account_username': acc.account_username,
             'linked_at': acc.linked_at,
-            'follower_count': acc.follower_count,  # Remove the condition here
-            'post_count': acc.post_count,          # Remove the condition here
+            'follower_count': acc.follower_count,
+            'post_count': acc.post_count,
             'is_connected': bool(acc.access_token),
             'last_synced': acc.last_synced,
-            'show_stats': show_stats               # ADD THIS LINE - was missing!
+            'show_stats': show_stats
         })
 
     return render_template(
         'linked_accounts.html',
-        user=active_user,
+        user=user,
         accounts=account_list,
         now=datetime.utcnow()
     )
+
 # ---------------------------
 # LINKEDIN AUTH
 # ---------------------------
 @app.route('/connect/linkedin')
 def connect_linkedin():
     """Initiate LinkedIn OAuth flow"""
-    active_user = current_user()
+    # Require authentication
+    if 'user_id' not in session:
+        flash("Please log in first", "danger")
+        return redirect(url_for('auth.login'))
+    
+    user_id = session['user_id']
+    active_user = dbs.session.get(User, user_id)
+    
+    if not active_user:
+        flash("User not found", "danger")
+        return redirect(url_for('auth.login'))
+    
     print(f"✅ User {active_user.user_id} starting LinkedIn connection")
 
     linkedin = Platform.query.filter_by(platform_name='LinkedIn').first()
@@ -266,7 +262,6 @@ def connect_linkedin():
 
     return redirect(auth_url)
 
-
 @app.route('/callback/linkedin')
 def linkedin_callback():
     """Handle LinkedIn OAuth callback"""
@@ -278,18 +273,14 @@ def linkedin_callback():
     if not code or not state:
         return "Authorization failed - missing parameters.", 400
 
-    # Retrieve state from database
     oauth_state = dbs.session.get(OAuthState, state)
     if not oauth_state:
         return "Invalid or expired state parameter", 400
 
     user_id = oauth_state.user_id
-
-    # Delete used state
     dbs.session.delete(oauth_state)
     dbs.session.commit()
 
-    # Exchange code for token
     try:
         token_response = requests.post(
             "https://www.linkedin.com/oauth/v2/accessToken",
@@ -320,7 +311,6 @@ def linkedin_callback():
         print(f"❌ Token exchange error: {error}")
         return f"Error during token exchange: {str(error)}", 500
 
-    # Get user info
     name = "LinkedIn User"
 
     if id_token:
@@ -334,7 +324,6 @@ def linkedin_callback():
         except (ValueError, KeyError) as error:
             print(f"⚠️ Could not decode ID token: {error}")
 
-    # Save to database
     linkedin = Platform.query.filter_by(platform_name="LinkedIn").first()
     if not linkedin:
         linkedin = Platform(
@@ -357,22 +346,33 @@ def linkedin_callback():
     acc.account_username = name
     acc.linked_at = datetime.utcnow()
     acc.last_synced = datetime.utcnow()
-    # LinkedIn doesn't provide follower/post counts easily
     acc.follower_count = 0
     acc.post_count = 0
     dbs.session.commit()
 
     print(f"✅ Successfully linked LinkedIn for {name}")
+    flash(f"Successfully connected LinkedIn account: {name}", "success")
     return redirect(url_for("linked_accounts"))
 
 
 # ---------------------------
-# TWITTER AUTH (FIXED)
+# TWITTER AUTH
 # ---------------------------
 @app.route('/connect/twitter')
 def connect_twitter():
     """Initiate Twitter OAuth flow with PKCE"""
-    active_user = current_user()
+    # Require authentication
+    if 'user_id' not in session:
+        flash("Please log in first", "danger")
+        return redirect(url_for('auth.login'))
+    
+    user_id = session['user_id']
+    active_user = dbs.session.get(User, user_id)
+    
+    if not active_user:
+        flash("User not found", "danger")
+        return redirect(url_for('auth.login'))
+    
     print(f"✅ User {active_user.user_id} starting Twitter connection")
 
     twitter_platform = Platform.query.filter_by(platform_name='Twitter').first()
@@ -392,7 +392,7 @@ def connect_twitter():
 
     state = secrets.token_urlsafe(32)
 
-    # Store in database instead of session
+    # Store in database
     oauth_state = OAuthState(
         state_id=state,
         user_id=active_user.user_id,
@@ -418,7 +418,6 @@ def connect_twitter():
     print(f"➡️ Redirecting to Twitter with state: {state}")
     return redirect(auth_url)
 
-
 @app.route('/callback/twitter')
 def callback_twitter():
     """Handle Twitter OAuth callback"""
@@ -430,7 +429,6 @@ def callback_twitter():
     if not code or not state:
         return "Missing code or state parameter", 400
 
-    # Retrieve state from database
     oauth_state = dbs.session.get(OAuthState, state)
     if not oauth_state:
         print("❌ Invalid or expired state")
@@ -441,13 +439,10 @@ def callback_twitter():
 
     print(f"✅ Found state for user {user_id}")
 
-    # Delete used state
     dbs.session.delete(oauth_state)
     dbs.session.commit()
 
-    # Exchange for access token
     try:
-        # Twitter requires Basic Auth with client_id:client_secret
         auth_header = base64.b64encode(
             f"{TWITTER_CLIENT_ID}:{TWITTER_CLIENT_SECRET}".encode()
         ).decode()
@@ -486,7 +481,6 @@ def callback_twitter():
         print(f"❌ Token exchange failed: {error}")
         return f"Error during token exchange: {str(error)}", 500
 
-    # Get Twitter user info using API v2 directly
     try:
         headers = {"Authorization": f"Bearer {access_token}"}
         user_response = requests.get(
@@ -511,9 +505,6 @@ def callback_twitter():
             print(f"⚠️ Twitter API response: {user_response.text}")
             username, name, followers, tweets = "Unknown", "Twitter User", 0, 0
 
-        print(f"✅ Fetched: {name} (@{username}) | Followers: {followers}")
-
-        # Save in database
         twitter_platform = Platform.query.filter_by(platform_name="Twitter").first()
         if not twitter_platform:
             twitter_platform = Platform(
@@ -542,6 +533,7 @@ def callback_twitter():
 
         dbs.session.commit()
         print("✅ Twitter account linked successfully")
+        flash(f"Successfully connected Twitter account: {name} (@{username})", "success")
 
         return redirect(url_for("linked_accounts"))
 
@@ -557,10 +549,14 @@ def callback_twitter():
 @app.route('/refresh-account/<int:account_id>')
 def refresh_account(account_id):
     """Refresh account data from social media platform"""
-    active_user = current_user()
+    if 'user_id' not in session:
+        return redirect(url_for('auth.login'))
+    
+    user_id = session['user_id']
+    
     acc = LinkedAccount.query.filter_by(
         account_id=account_id,
-        user_id=active_user.user_id
+        user_id=user_id
     ).first()
 
     if not acc or not acc.access_token:
@@ -615,14 +611,17 @@ def refresh_account(account_id):
 
     return redirect(url_for("linked_accounts"))
 
-
 @app.route('/disconnect-account/<int:account_id>')
 def disconnect_account(account_id):
     """Disconnect and remove a linked account"""
-    active_user = current_user()
+    if 'user_id' not in session:
+        return redirect(url_for('auth.login'))
+    
+    user_id = session['user_id']
+    
     acc = LinkedAccount.query.filter_by(
         account_id=account_id,
-        user_id=active_user.user_id
+        user_id=user_id
     ).first()
 
     if acc:
@@ -632,20 +631,25 @@ def disconnect_account(account_id):
 
     return redirect(url_for('linked_accounts'))
 
-
 @app.route('/account-details/<int:account_id>')
 def account_details(account_id):
     """Display detailed information for a linked account"""
-    active_user = current_user()
+    if 'user_id' not in session:
+        flash("Please log in first.", "warning")
+        return redirect(url_for('auth.login'))
+    
+    user_id = session['user_id']
     acc = LinkedAccount.query.filter_by(
         account_id=account_id,
-        user_id=active_user.user_id
+        user_id=user_id
     ).first()
 
     if not acc:
-        return "Account not found", 404
+        flash("Account not found.", "danger")
+        return redirect(url_for('linked_accounts'))
 
     platform = dbs.session.get(Platform, acc.platform_id)
+    active_user = dbs.session.get(User, user_id)
 
     details = {
         'account_id': acc.account_id,
@@ -660,10 +664,6 @@ def account_details(account_id):
     return render_template('account_details.html', account=details, user=active_user)
 
 
-if not os.getenv('TESTING'):
-    with app.app_context():
-        dbs.create_all()
-        print("✅ Database tables created/verified")
 # ---------------------------
 # RUN SERVER
 # ---------------------------
