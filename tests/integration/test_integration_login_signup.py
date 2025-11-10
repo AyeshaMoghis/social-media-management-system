@@ -11,7 +11,8 @@ def client():
 
 def test_home_page(client):
     response = client.get('/')
-    assert b"Welcome to SMMS" in response.data
+    assert response.status_code == 302  # Check it redirects
+    assert response.location == '/login'  # Check it redirects to login
 
 
 def test_access_manager_dashboard_requires_login(client):
