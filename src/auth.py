@@ -1,19 +1,31 @@
+"""
+Authentication module for user signup, login, and logout.
+Handles password hashing and session management.
+"""
+import os
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from werkzeug.security import generate_password_hash, check_password_hash
 import mysql.connector
+from dotenv import load_dotenv
 
 auth = Blueprint('auth', __name__, template_folder='templates')
 
+load_dotenv()
+
+
 def get_db_connection():
+    """Establish and return MySQL database connection"""
     return mysql.connector.connect(
-        host="localhost",
-        user="smms_user",
-        password="REDACTED_HARDCODED",
-        database="smms"
+        host=os.getenv("MYSQL_HOST"),
+        user=os.getenv("MYSQL_USER"),
+        password=os.getenv("MYSQL_PASSWORD"),
+        database=os.getenv("MYSQL_DB")
     )
+
 
 @auth.route('/signup', methods=['GET', 'POST'])
 def signup():
+    """Handle user signup with password hashing"""
     if request.method == 'POST':
         full_name = request.form['full_name']
         email = request.form['email']
@@ -29,11 +41,12 @@ def signup():
                 (email, hashed_pw, full_name, role)
             )
             db.commit()
-            flash(f"Account created successfully as {role.capitalize()}! Please log in.", "success")
+            flash(f"Account created successfully as {role.capitalize()}! Please log in.",
+                  "success")
             return redirect(url_for('auth.login'))
-        except Exception as e:
+        except Exception:
             # This catches both mysql.connector.Error and mocked exceptions
-            flash(f"Error: {e}", "danger")
+            flash("Error creating account", "danger")
         finally:
             cursor.close()
             db.close()
@@ -42,6 +55,7 @@ def signup():
 
 @auth.route('/login', methods=['GET', 'POST'])
 def login():
+    """Handle user login with password verification"""
     if request.method == 'POST':
         email = request.form['email']
         password = request.form['password']
@@ -61,16 +75,15 @@ def login():
 
             if user['role'] == 'manager':
                 return redirect(url_for('manager_dashboard'))
-            else:
-                return redirect(url_for('user_dashboard'))
-        else:
-            flash("Invalid credentials. Try again.", "danger")
+            return redirect(url_for('user_dashboard'))
+        flash("Invalid credentials. Try again.", "danger")
 
     return render_template('login.html')
 
 
 @auth.route('/logout')
 def logout():
+    """Clear session and log out user"""
     session.clear()
     flash("You've been logged out.", "info")
     return redirect(url_for('auth.login'))
