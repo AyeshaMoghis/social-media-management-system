@@ -39,7 +39,6 @@ CREATE TABLE IF NOT EXISTS linked_account (
     platform_id INT,
     access_token TEXT,
     refresh_token TEXT,
-    external_id VARCHAR(255),  -- Added column
     token_expiry DATETIME,
     account_username VARCHAR(100),
     linked_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -59,7 +58,7 @@ CREATE TABLE IF NOT EXISTS post (
     platform_id INT,
     content_text TEXT,
     media_url VARCHAR(255),
-    status ENUM('draft', 'pending', 'approved', 'rejected', 'scheduled', 'published', 'failed') DEFAULT 'draft',  -- Modified column
+    status ENUM('pending', 'approved', 'rejected', 'scheduled', 'published') DEFAULT 'pending',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     approved_by INT,
