@@ -1,24 +1,34 @@
 """
 Social Media Management System - Flask Application
-Integrates authentication + social media OAuth connections + post scheduling
+Integrates authentication, OAuth, and post scheduling.
 """
+
+# pylint: disable=too-many-lines, too-many-return-statements, too-many-branches
+# pylint: disable=too-many-locals, too-many-statements, import-outside-toplevel
+
 # Standard library imports
-import os
-import secrets
-import hashlib
 import base64
+import os
+import hashlib
+import secrets
 import json
 from datetime import datetime, timedelta
-from urllib.parse import urlencode
 import uuid
-from werkzeug.utils import secure_filename
-import base64, os, hashlib
 
-# Third-party imports
-from flask import Flask, render_template, redirect, url_for, session, request, flash, jsonify, send_from_directory
-from flask_sqlalchemy import SQLAlchemy
-from dotenv import load_dotenv
-import requests
+# Third-party imports (type: ignore prevents import errors in CI)
+from flask import (  # type: ignore
+    Flask, render_template, redirect, url_for, session,
+    request, flash, jsonify, send_from_directory
+)
+from flask_sqlalchemy import SQLAlchemy  # type: ignore
+from dotenv import load_dotenv  # type: ignore
+import requests  # type: ignore
+
+# Create uploads directory early
+UPLOAD_FOLDER = 'uploads'
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+
 
 # ---------------------------
 # CONFIG & SETUP
@@ -171,48 +181,50 @@ def cleanup_old_oauth_states():
 
 
 def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+    """Check if file extension is allowed"""
+    return '.' in filename and \
+        filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
 def get_file_type(filename):
+    """Determine file type based on extension"""
     ext = filename.rsplit('.', 1)[1].lower()
     if ext in {'png', 'jpg', 'jpeg', 'gif'}:
         return 'image'
-    elif ext in {'mp4', 'mov', 'avi', 'webm'}:
+    if ext in {'mp4', 'mov', 'avi', 'webm'}:
         return 'video'
     return None
 
-
 def check_and_publish_scheduled_posts():
-    """Check for scheduled posts that are past their scheduled time and mark them as published"""
+    """Check scheduled posts and mark as published if time has passed"""
     try:
         # Use local time instead of UTC since scheduled times are in local timezone
-        from datetime import datetime as dt
+        from datetime import datetime as dt  # pylint: disable=reimported
         current_time = dt.now()
         print(f"🕐 Current local time: {current_time}")
-        
+
         # Find all scheduled posts where the scheduled time has passed
         scheduled_posts = ScheduledPost.query.filter(
             ScheduledPost.status == 'scheduled',
             ScheduledPost.scheduled_time <= current_time
         ).all()
-        
+
         print(f"📋 Found {len(scheduled_posts)} scheduled posts to check")
         for sp in scheduled_posts:
             print(f"   - Post {sp.post_id}: scheduled for {sp.scheduled_time}")
-        
+
         published_count = 0
         for sched_post in scheduled_posts:
             # Update the scheduled post status
             sched_post.status = 'published'
             sched_post.published_at = current_time
-            
+
             # Update the main post status
             post = Post.query.get(sched_post.post_id)
             if post:
                 post.status = 'published'
                 post.updated_at = current_time
-            
+
             # Update the post platform status
             post_platform = PostPlatform.query.filter_by(
                 post_id=sched_post.post_id,
@@ -221,15 +233,15 @@ def check_and_publish_scheduled_posts():
             if post_platform:
                 post_platform.published = True
                 post_platform.published_at = current_time
-            
+
             published_count += 1
-        
+
         if published_count > 0:
             dbs.session.commit()
             print(f"✅ Auto-published {published_count} scheduled posts")
-        
+
         return published_count
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         print(f"❌ Error checking scheduled posts: {e}")
         dbs.session.rollback()
         return 0
@@ -250,12 +262,11 @@ def home():
     """Landing page - redirects based on login status"""
     if 'user_id' not in session:
         return redirect(url_for('auth.login'))
-    
+
     # User is logged in - redirect to their dashboard
     if session.get('role') == 'manager':
         return redirect(url_for('manager_dashboard'))
-    else:
-        return redirect(url_for('linked_accounts'))
+    return redirect(url_for('linked_accounts'))
 
 
 # ---------------------------
@@ -287,14 +298,14 @@ def linked_accounts():
     """Display all linked social media accounts for current user"""
     if 'user_id' not in session:
         return redirect(url_for('auth.login'))
-    
+
     user_id = session['user_id']
-    user = dbs.session.get(User, user_id)
-    
-    if not user:
+    linked_user = dbs.session.get(User, user_id)
+
+    if not linked_user:
         return redirect(url_for('auth.login'))
-    
-    accounts = LinkedAccount.query.filter_by(user_id=user.user_id).all()
+
+    accounts = LinkedAccount.query.filter_by(user_id=linked_user.user_id).all()
 
     account_list = []
     for acc in accounts:
@@ -316,7 +327,7 @@ def linked_accounts():
 
     return render_template(
         'linked_accounts.html',
-        user=user,
+        user=linked_user,
         accounts=account_list,
         now=datetime.utcnow()
     )
@@ -331,14 +342,14 @@ def connect_linkedin():
     if 'user_id' not in session:
         flash("Please log in first", "danger")
         return redirect(url_for('auth.login'))
-    
+
     user_id = session['user_id']
     active_user = dbs.session.get(User, user_id)
-    
+
     if not active_user:
         flash("User not found", "danger")
         return redirect(url_for('auth.login'))
-    
+
     print(f"✅ User {active_user.user_id} starting LinkedIn connection")
 
     linkedin = Platform.query.filter_by(platform_name='LinkedIn').first()
@@ -368,7 +379,7 @@ def connect_linkedin():
         "?response_type=code"
         f"&client_id={LINKEDIN_CLIENT_ID}"
         f"&redirect_uri={LINKEDIN_REDIRECT_URI}"
-        "&scope=openid%20profile%20email%20w_member_social"  # ✅ Added openid for profile access
+        "&scope=openid%20profile%20email%20w_member_social"
         f"&state={state}"
     )
 
@@ -377,7 +388,8 @@ def connect_linkedin():
 
 @app.route('/callback/linkedin')
 def linkedin_callback():
-    from datetime import datetime
+    """Handle LinkedIn OAuth callback"""
+    from datetime import datetime  # pylint: disable=reimported
     try:
         code = request.args.get("code")
         state = request.args.get("state")
@@ -484,6 +496,7 @@ def linkedin_callback():
 # ---------------------------
 @app.route('/connect/twitter')
 def connect_twitter():
+    """Initiate Twitter OAuth flow"""
     try:
         print(f"✅ User {session.get('user_id')} starting Twitter connection")
 
@@ -528,6 +541,7 @@ def connect_twitter():
 
 @app.route('/callback/twitter')
 def callback_twitter():
+    """Handle Twitter OAuth callback"""
     try:
         state = request.args.get('state')
         code = request.args.get('code')
@@ -640,9 +654,9 @@ def refresh_account(account_id):
     """Refresh account data from social media platform"""
     if 'user_id' not in session:
         return redirect(url_for('auth.login'))
-    
+
     user_id = session['user_id']
-    
+
     acc = LinkedAccount.query.filter_by(
         account_id=account_id,
         user_id=user_id
@@ -706,9 +720,9 @@ def disconnect_account(account_id):
     """Disconnect and remove a linked account"""
     if 'user_id' not in session:
         return redirect(url_for('auth.login'))
-    
+
     user_id = session['user_id']
-    
+
     acc = LinkedAccount.query.filter_by(
         account_id=account_id,
         user_id=user_id
@@ -729,7 +743,7 @@ def account_details(account_id):
     if 'user_id' not in session:
         flash("Please log in first.", "warning")
         return redirect(url_for('auth.login'))
-    
+
     user_id = session['user_id']
     acc = LinkedAccount.query.filter_by(
         account_id=account_id,
@@ -753,7 +767,12 @@ def account_details(account_id):
         'has_token': bool(acc.access_token)
     }
 
-    return render_template('account_details.html', account=details, user=active_user)
+    account_user = dbs.session.get(User, user_id)
+    return render_template(
+        'account_details.html',
+        account=details,
+        user=account_user
+    )
 
 
 # ---------------------------
@@ -765,12 +784,14 @@ def post_scheduler():
     if 'user_id' not in session:
         flash("Please log in first", "warning")
         return redirect(url_for('auth.login'))
-    
-    user = current_user()
-    
+
+    scheduler_user = current_user()
+
     # Get user's linked accounts
-    accounts = LinkedAccount.query.filter_by(user_id=user.user_id).all()
-    
+    accounts = LinkedAccount.query.filter_by(
+        user_id=scheduler_user.user_id
+    ).all()
+
     account_list = []
     for acc in accounts:
         platform = dbs.session.get(Platform, acc.platform_id)
@@ -784,10 +805,17 @@ def post_scheduler():
     
     # If no accounts linked, redirect to linked accounts page
     if not account_list:
-        flash("Please connect at least one social media account first", "warning")
+        flash(
+            "Please connect at least one social media account first",
+            "warning"
+        )
         return redirect(url_for('linked_accounts'))
-    
-    return render_template('create_schedule_posts.html', user=user, accounts=account_list)
+
+    return render_template(
+        'create_schedule_posts.html',
+        user=scheduler_user,
+        accounts=account_list
+    )
 
 
 @app.route('/api/posts', methods=['GET'])
@@ -818,19 +846,31 @@ def get_posts():
             for pp in platforms:
                 platform = dbs.session.get(Platform, pp.platform_id)
                 platform_data.append({
-                    'platform_name': platform.platform_name if platform else 'Unknown',
+                    'platform_name': (
+                        platform.platform_name if platform else 'Unknown'
+                    ),
                     'published': pp.published,
-                    'published_at': pp.published_at.strftime('%Y-%m-%d %H:%M:%S') if pp.published_at else None
+                    'published_at': (
+                        pp.published_at.strftime('%Y-%m-%d %H:%M:%S')
+                        if pp.published_at else None
+                    )
                 })
-            
-            print(f"📱 Post {post.post_id} platforms: {[p['platform_name'] for p in platform_data]}")
-            
+
+            platform_names = [p['platform_name'] for p in platform_data]
+            print(f"📱 Post {post.post_id} platforms: {platform_names}")
+
             # Get scheduled time if post is scheduled
             scheduled_time = None
             if post.status == 'scheduled':
-                scheduled_post = ScheduledPost.query.filter_by(post_id=post.post_id).first()
+                scheduled_post = ScheduledPost.query.filter_by(
+                    post_id=post.post_id
+                ).first()
                 if scheduled_post and scheduled_post.scheduled_time:
-                    scheduled_time = scheduled_post.scheduled_time.strftime('%Y-%m-%d %H:%M:%S')
+                    scheduled_time = (
+                        scheduled_post.scheduled_time.strftime(
+                            '%Y-%m-%d %H:%M:%S'
+                        )
+                    )
 
             posts_list.append({
                 'id': post.post_id,
@@ -863,7 +903,10 @@ def create_post():
         status = request.form.get('status', 'draft')
         
         # Debug logging
-        print(f"📝 Creating post - Status received: '{status}', Scheduled time: '{scheduled_time}'")
+        print(
+            f"📝 Creating post - Status received: '{status}', "
+            f"Scheduled time: '{scheduled_time}'"
+        )
         print(f"📝 Account IDs: {account_ids}")
 
         media_file = request.files.get('media')
@@ -900,7 +943,7 @@ def create_post():
             final_status = 'scheduled'
         else:
             final_status = 'draft'
-        
+
         print(f"✅ Final status determined: '{final_status}'")
 
         # Create post
@@ -925,8 +968,11 @@ def create_post():
 
                 # Create schedule if scheduled
                 if scheduled_dt and final_status == 'scheduled':
-                    from datetime import datetime as dt
-                    print(f"📅 Creating scheduled post for {scheduled_dt} (Current local time: {dt.now()})")
+                    from datetime import datetime as dt  # pylint: disable=reimported
+                    print(
+                        f"📅 Creating scheduled post for {scheduled_dt} "
+                        f"(Current local time: {dt.now()})"
+                    )
                     sched = ScheduledPost(
                         post_id=post.post_id,
                         platform_id=account.platform_id,
@@ -938,29 +984,38 @@ def create_post():
 
         # If status is 'published', actually publish to the platforms NOW
         if final_status == 'published':
-            print(f"🚀 Publishing post {post.post_id} to platforms immediately...")
+            print(
+                f"🚀 Publishing post {post.post_id} "
+                "to platforms immediately..."
+            )
             for account_id in account_ids:
                 account = LinkedAccount.query.get(account_id)
                 if account and account.user_id == user_id:
                     success, result = publish_to_platform(post, account)
-                    
+
                     # Update PostPlatform with result
                     pp = PostPlatform.query.filter_by(
                         post_id=post.post_id,
                         platform_id=account.platform_id
                     ).first()
-                    
+
                     if pp:
                         if success:
                             pp.published = True
                             pp.published_at = datetime.now()
                             pp.platform_post_id = result
-                            print(f"✅ Published to {account.platform_id}: {result}")
+                            print(
+                                f"✅ Published to {account.platform_id}: "
+                                f"{result}"
+                            )
                         else:
                             pp.published = False
                             pp.error_message = result
-                            print(f"❌ Failed to publish to {account.platform_id}: {result}")
-            
+                            print(
+                                f"❌ Failed to publish to "
+                                f"{account.platform_id}: {result}"
+                            )
+
             dbs.session.commit()
 
         return jsonify({
@@ -996,25 +1051,47 @@ def update_post(post_id):
         if new_text is not None:
             post.content_text = new_text
 
-        # If post is published — update on Twitter (LinkedIn doesn't support edit)
+        # If post is published — update on Twitter
+        # (LinkedIn doesn't support edit)
         if status == 'published':
             post.status = 'published'
 
             # Get all linked platforms for this post
-            linked_platforms = PostPlatform.query.filter_by(post_id=post.post_id).all()
+            linked_platforms = PostPlatform.query.filter_by(
+                post_id=post.post_id
+            ).all()
 
             for pp in linked_platforms:
                 platform = dbs.session.get(Platform, pp.platform_id)
-                account = LinkedAccount.query.filter_by(user_id=user_id, platform_id=platform.platform_id).first()
+                account = LinkedAccount.query.filter_by(
+                    user_id=user_id,
+                    platform_id=platform.platform_id
+                ).first()
 
-                if platform and platform.platform_name.lower() in ['twitter', 'x']:
+                if platform and \
+                   platform.platform_name.lower() in ['twitter', 'x']:
                     # If tweet exists, delete it first
                     if pp.platform_post_id:
-                        print(f"🗑️ Deleting existing tweet {pp.platform_post_id} before reposting...")
-                        headers = {"Authorization": f"Bearer {account.access_token}"}
-                        delete_url = f"https://api.twitter.com/2/tweets/{pp.platform_post_id}"
-                        delete_resp = requests.delete(delete_url, headers=headers, timeout=10)
-                        print(f"🗑️ Delete response: {delete_resp.status_code} - {delete_resp.text}")
+                        print(
+                            f"🗑️ Deleting existing tweet "
+                            f"{pp.platform_post_id} before reposting..."
+                        )
+                        headers = {
+                            "Authorization": f"Bearer {account.access_token}"
+                        }
+                        delete_url = (
+                            "https://api.twitter.com/2/tweets/"
+                            f"{pp.platform_post_id}"
+                        )
+                        delete_resp = requests.delete(
+                            delete_url,
+                            headers=headers,
+                            timeout=10
+                        )
+                        print(
+                            f"🗑️ Delete response: {delete_resp.status_code} "
+                            f"- {delete_resp.text}"
+                        )
 
                     # Repost updated tweet
                     headers = {
@@ -1022,36 +1099,71 @@ def update_post(post_id):
                         "Content-Type": "application/json"
                     }
                     payload = {"text": post.content_text}
-                    post_resp = requests.post("https://api.twitter.com/2/tweets", headers=headers, json=payload, timeout=10)
+                    post_resp = requests.post(
+                        "https://api.twitter.com/2/tweets",
+                        headers=headers,
+                        json=payload,
+                        timeout=10
+                    )
 
                     if post_resp.status_code == 201:
                         new_tweet_data = post_resp.json()
-                        new_tweet_id = new_tweet_data.get("data", {}).get("id")
+                        new_tweet_id = (
+                            new_tweet_data.get("data", {}).get("id")
+                        )
                         pp.platform_post_id = new_tweet_id
                         pp.published = True
                         pp.published_at = datetime.now()
-                        print(f"✅ Updated tweet posted successfully: {new_tweet_id}")
+                        print(
+                            f"✅ Updated tweet posted successfully: "
+                            f"{new_tweet_id}"
+                        )
                     else:
                         pp.error_message = post_resp.text
-                        print(f"❌ Failed to repost updated tweet: {post_resp.text}")
-                
-                elif platform and platform.platform_name.lower() == 'linkedin':
+                        print(
+                            f"❌ Failed to repost updated tweet: "
+                            f"{post_resp.text}"
+                        )
+
+                elif platform and \
+                     platform.platform_name.lower() == 'linkedin':
                     # ⚠️ LinkedIn API doesn't support editing posts
-                    print(f"⚠️ LinkedIn doesn't support editing posts via API. Post ID: {pp.platform_post_id}")
-                    pp.error_message = "LinkedIn doesn't support editing posts via API"
+                    print(
+                        "⚠️ LinkedIn doesn't support editing posts "
+                        f"via API. Post ID: {pp.platform_post_id}"
+                    )
+                    pp.error_message = (
+                        "LinkedIn doesn't support editing posts via API"
+                    )
 
         elif status == 'scheduled' and scheduled_time:
             try:
-                scheduled_dt = datetime.strptime(scheduled_time, '%Y-%m-%dT%H:%M')
+                scheduled_dt = datetime.strptime(
+                    scheduled_time,
+                    '%Y-%m-%dT%H:%M'
+                )
                 post.status = 'scheduled'
-                sched = ScheduledPost.query.filter_by(post_id=post.post_id).first()
+                sched = ScheduledPost.query.filter_by(
+                    post_id=post.post_id
+                ).first()
                 if sched:
                     sched.scheduled_time = scheduled_dt
                 else:
-                    platform_id = PostPlatform.query.filter_by(post_id=post.post_id).first().platform_id
-                    dbs.session.add(ScheduledPost(post_id=post.post_id, platform_id=platform_id, scheduled_time=scheduled_dt))
+                    pp_query = PostPlatform.query.filter_by(
+                        post_id=post.post_id
+                    ).first()
+                    platform_id = pp_query.platform_id
+                    dbs.session.add(
+                        ScheduledPost(
+                            post_id=post.post_id,
+                            platform_id=platform_id,
+                            scheduled_time=scheduled_dt
+                        )
+                    )
             except ValueError:
-                return jsonify({'error': 'Invalid scheduled time format'}), 400
+                return jsonify({
+                    'error': 'Invalid scheduled time format'
+                }), 400
 
         elif status == 'draft':
             post.status = 'draft'
@@ -1081,20 +1193,29 @@ def delete_tweet(account, tweet_id):
         if response.status_code == 200:
             print(f"🗑️ Successfully deleted Tweet {tweet_id}")
             return True
-        else:
-            print(f"⚠️ Failed to delete Tweet {tweet_id}: {response.status_code} - {response.text}")
-            # Try token refresh if unauthorized
-            if response.status_code == 401:
-                print("⚠️ Access token expired, refreshing before delete...")
-                new_token = refresh_twitter_token(account)
-                if new_token:
-                    headers["Authorization"] = f"Bearer {new_token}"
-                    response = requests.delete(delete_url, headers=headers, timeout=10)
-                    if response.status_code == 200:
-                        print(f"🗑️ Successfully deleted Tweet {tweet_id} after refresh")
-                        return True
-            return False
-    except Exception as e:
+        print(
+            f"⚠️ Failed to delete Tweet {tweet_id}: "
+            f"{response.status_code} - {response.text}"
+        )
+        # Try token refresh if unauthorized
+        if response.status_code == 401:
+            print("⚠️ Access token expired, refreshing before delete...")
+            new_token = refresh_twitter_token(account)
+            if new_token:
+                headers["Authorization"] = f"Bearer {new_token}"
+                response = requests.delete(
+                    delete_url,
+                    headers=headers,
+                    timeout=10
+                )
+                if response.status_code == 200:
+                    print(
+                        f"🗑️ Successfully deleted Tweet {tweet_id} "
+                        "after refresh"
+                    )
+                    return True
+        return False
+    except Exception as e:  # pylint: disable=broad-exception-caught
         print(f"❌ Error deleting tweet: {e}")
         return False
 
@@ -1113,19 +1234,34 @@ def delete_post(post_id):
             return jsonify({'error': 'Post not found'}), 404
 
         # ✅ Delete from platforms where supported
-        linked_platforms = PostPlatform.query.filter_by(post_id=post.post_id).all()
+        linked_platforms = PostPlatform.query.filter_by(
+            post_id=post.post_id
+        ).all()
         for pp in linked_platforms:
             platform = dbs.session.get(Platform, pp.platform_id)
-            account = LinkedAccount.query.filter_by(user_id=user_id, platform_id=platform.platform_id).first()
+            account = LinkedAccount.query.filter_by(
+                user_id=user_id,
+                platform_id=platform.platform_id
+            ).first()
 
-            if platform.platform_name.lower() in ['twitter', 'x'] and pp.platform_post_id:
-                print(f"🗑️ Deleting tweet {pp.platform_post_id} from Twitter...")
+            if platform.platform_name.lower() in ['twitter', 'x'] and \
+               pp.platform_post_id:
+                print(
+                    f"🗑️ Deleting tweet {pp.platform_post_id} "
+                    "from Twitter..."
+                )
                 delete_tweet(account, pp.platform_post_id)
-            
+
             elif platform.platform_name.lower() == 'linkedin':
                 # ⚠️ LinkedIn API doesn't support deleting posts
-                print(f"⚠️ LinkedIn doesn't support deleting posts via API. Post ID: {pp.platform_post_id}")
-                print(f"ℹ️ Users must manually delete the post from LinkedIn: https://www.linkedin.com")
+                print(
+                    "⚠️ LinkedIn doesn't support deleting posts "
+                    f"via API. Post ID: {pp.platform_post_id}"
+                )
+                print(
+                    "ℹ️ Users must manually delete the post from "
+                    "LinkedIn: https://www.linkedin.com"
+                )
 
         # ✅ Delete media file locally
         if post.media_url and os.path.exists(post.media_url):
@@ -1137,10 +1273,16 @@ def delete_post(post_id):
         dbs.session.delete(post)
         dbs.session.commit()
 
-        print(f"✅ Deleted post {post_id} locally and from supported platforms")
+        print(
+            f"✅ Deleted post {post_id} locally and from "
+            "supported platforms"
+        )
         return jsonify({
             'message': 'Post deleted successfully',
-            'note': 'LinkedIn posts must be deleted manually from LinkedIn.com (API limitation)'
+            'note': (
+                'LinkedIn posts must be deleted manually from '
+                'LinkedIn.com (API limitation)'
+            )
         }), 200
 
     except Exception as e:
@@ -1154,7 +1296,7 @@ def uploaded_file(filename):
     """Serve uploaded files"""
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 def refresh_twitter_token(account):
-    """Refresh expired Twitter OAuth2 token automatically."""
+    """Refresh expired Twitter OAuth2 token automatically"""
     try:
         token_url = "https://api.twitter.com/2/oauth2/token"
 
@@ -1275,7 +1417,8 @@ def publish_to_linkedin(post, account):
             }
         }
 
-        print(f"🔵 LinkedIn: Posting with payload: {json.dumps(post_payload, indent=2)}")
+        payload_str = json.dumps(post_payload, indent=2)
+        print(f"🔵 LinkedIn: Posting with payload: {payload_str}")
 
         # ✅ Make POST request to LinkedIn UGC API
         post_resp = requests.post(
@@ -1294,14 +1437,16 @@ def publish_to_linkedin(post, account):
             try:
                 data = post_resp.json()
                 post_id = data.get("id")
-            except Exception:
+            except Exception:  # pylint: disable=broad-exception-caught
                 post_id = None
-            
+
             # Try getting from headers if not in body
             if not post_id:
-                post_id = (post_resp.headers.get("x-restli-id") or 
-                          post_resp.headers.get("Location") or 
-                          "unknown")
+                post_id = (
+                    post_resp.headers.get("x-restli-id") or
+                    post_resp.headers.get("Location") or
+                    "unknown"
+                )
 
             print(f"✅ Published to LinkedIn: Post ID {post_id}")
             return True, str(post_id)
@@ -1323,15 +1468,17 @@ def publish_to_platform(post, account):
     """
     try:
         platform = dbs.session.get(Platform, account.platform_id)
-        
-        if platform.platform_name.lower() == 'twitter' or platform.platform_name.lower() == 'x':
+
+        if platform.platform_name.lower() in ('twitter', 'x'):
             return publish_to_twitter(post, account)
-            
-        elif platform.platform_name.lower() == 'linkedin':
+
+        if platform.platform_name.lower() == 'linkedin':
             return publish_to_linkedin(post, account)
-        
-        else:
-            return False, f"Platform {platform.platform_name} not supported for publishing yet"
+
+        return False, (
+            f"Platform {platform.platform_name} not supported "
+            "for publishing yet"
+        )
         
     except Exception as e:
         print(f"❌ Error publishing to platform: {e}")
@@ -1342,17 +1489,16 @@ def publish_to_platform(post, account):
 # ERROR HANDLERS
 # ---------------------------
 @app.errorhandler(404)
-def not_found(error):
+def not_found(_error):
     """Handle 404 errors"""
     return render_template('404.html'), 404
 
 
 @app.errorhandler(500)
-def internal_error(error):
+def internal_error(_error):
     """Handle 500 errors"""
     dbs.session.rollback()
     return render_template('500.html'), 500
-
 
 
 # ---------------------------
