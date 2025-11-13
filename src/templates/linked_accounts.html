@@ -17,8 +17,8 @@
     <div>
       <h1 class="sidebar-title">SMMS</h1>
       <nav>
-        <a href="#" class="nav-item">Dashboard</a>
-        <a href="#" class="nav-item">Post Scheduler</a>
+        <a href="{{ url_for('linked_accounts') }}" class="nav-item">Dashboard</a>
+        <a href="{{ url_for('post_scheduler') }}" class="nav-item">Post Scheduler</a>
         <a href="#" class="nav-item">Analytics</a>
         <a href="#" class="nav-item">Team Collaboration</a>
         <a href="/linked-accounts" class="nav-item active">Linked Accounts</a>
@@ -27,7 +27,7 @@
       </nav>
     </div>
     <a href="#" class="logout">Logout</a>
-  </aside>
+  </aside>.
 
   <!-- Main -->
   <main class="ml-64 p-8">

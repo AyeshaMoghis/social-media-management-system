@@ -33,12 +33,16 @@ CREATE TABLE IF NOT EXISTS platform (
 -- ===========================
 -- Table: linked_account
 -- ===========================
+-- ===========================
+-- Table: linked_account (UPDATED)
+-- ===========================
 CREATE TABLE IF NOT EXISTS linked_account (
     account_id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT,
     platform_id INT,
     access_token TEXT,
     refresh_token TEXT,
+    external_id VARCHAR(255),                -- ✅ Newly added column
     token_expiry DATETIME,
     account_username VARCHAR(100),
     linked_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -48,6 +52,7 @@ CREATE TABLE IF NOT EXISTS linked_account (
     FOREIGN KEY (user_id) REFERENCES user(user_id) ON DELETE CASCADE,
     FOREIGN KEY (platform_id) REFERENCES platform(platform_id) ON DELETE CASCADE
 );
+
 
 -- ===========================
 -- Table: post
@@ -64,6 +69,21 @@ CREATE TABLE IF NOT EXISTS post (
     approved_by INT,
     FOREIGN KEY (user_id) REFERENCES user(user_id) ON DELETE CASCADE,
     FOREIGN KEY (approved_by) REFERENCES user(user_id),
+    FOREIGN KEY (platform_id) REFERENCES platform(platform_id) ON DELETE CASCADE
+);
+
+-- ===========================
+-- Table: post_platform
+-- ===========================
+CREATE TABLE IF NOT EXISTS post_platform (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    post_id INT,
+    platform_id INT,
+    platform_post_id VARCHAR(255),
+    published BOOLEAN DEFAULT FALSE,
+    error_message TEXT,
+    published_at DATETIME,
+    FOREIGN KEY (post_id) REFERENCES post(post_id) ON DELETE CASCADE,
     FOREIGN KEY (platform_id) REFERENCES platform(platform_id) ON DELETE CASCADE
 );
 

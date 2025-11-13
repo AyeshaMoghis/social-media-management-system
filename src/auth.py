@@ -1,15 +1,19 @@
+import os
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from werkzeug.security import generate_password_hash, check_password_hash
 import mysql.connector
+from dotenv import load_dotenv
 
 auth = Blueprint('auth', __name__, template_folder='templates')
 
+load_dotenv()
+
 def get_db_connection():
     return mysql.connector.connect(
-        host="localhost",
-        user="smms_user",
-        password="REDACTED_HARDCODED",
-        database="smms"
+        host=os.getenv("MYSQL_HOST"),
+        user=os.getenv("MYSQL_USER"),
+        password=os.getenv("MYSQL_PASSWORD"),
+        database=os.getenv("MYSQL_DB")
     )
 
 @auth.route('/signup', methods=['GET', 'POST'])
