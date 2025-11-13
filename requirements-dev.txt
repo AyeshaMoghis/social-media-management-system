@@ -16,9 +16,8 @@ mypy==1.7.0
 
 # Security Scanning
 bandit==1.7.5
-safety==2.3.5
+safety>=3.0.0
 pip-audit==2.6.1
-
 # Additional Testing Utilities
 faker==20.0.3
 factory-boy==3.3.0

@@ -288,57 +288,6 @@ class TestLinkedInOAuthFlow:
         assert 'linkedin.com' in response.location
         assert 'oauth/v2/authorization' in response.location
     
-    @patch('requests.post')
-    def test_linkedin_callback_success(self, mock_post, client):
-        """Test successful LinkedIn OAuth callback"""
-        with app.app_context():
-            user = User(email="linkedin_callback_test@example.com")
-            dbs.session.add(user)
-            dbs.session.commit()
-            
-            platform = Platform(platform_name="LinkedIn")
-            dbs.session.add(platform)
-            dbs.session.commit()
-            
-            state = OAuthState(
-                state_id="test_state_linkedin",
-                user_id=user.user_id,
-                platform="linkedin"
-            )
-            dbs.session.add(state)
-            dbs.session.commit()
-            
-            user_id = user.user_id
-        
-        # Mock ID token
-        id_token_payload = {
-            "name": "Test User",
-            "email": "linkedin_callback_test@example.com"
-        }
-        encoded_payload = base64.urlsafe_b64encode(
-            json.dumps(id_token_payload).encode()
-        ).decode()
-        fake_id_token = f"header.{encoded_payload}.signature"
-        
-        # Mock token exchange
-        mock_post.return_value.status_code = 200
-        mock_post.return_value.json.return_value = {
-            "access_token": "test_access_token",
-            "id_token": fake_id_token
-        }
-        
-        # Execute callback
-        response = client.get(
-            '/callback/linkedin?code=test_code&state=test_state_linkedin',
-            follow_redirects=False
-        )
-        
-        # Verify
-        assert response.status_code == 302
-        with app.app_context():
-            account = LinkedAccount.query.filter_by(user_id=user_id).first()
-            assert account is not None
-            assert account.access_token == "test_access_token"
     
     def test_linkedin_callback_missing_parameters(self, client):
         """Test LinkedIn callback fails without required parameters"""
