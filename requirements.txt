@@ -1,13 +1,19 @@
-Flask
-Flask-SQLAlchemy
-python-dotenv
-requests
-PyMySQL
-Werkzeug
-tweepy
-pytest 
-pytest-flask 
-flask-testing
-pytest-mock
-pytest-cov
-mysql-connector-python
+# Core Framework
+Flask==3.0.0
+Werkzeug==3.0.1
+
+# Database
+SQLAlchemy==2.0.23
+PyMySQL==1.1.0
+cryptography==41.0.7
+
+# Authentication & Security
+requests==2.31.0
+python-dotenv==1.0.0
+
+# File Handling
+Pillow==10.1.0
+
+# OAuth & Social Media
+requests-oauthlib==1.3.1
+oauthlib==3.2.2
