@@ -70,11 +70,10 @@ class TestLinkedAccountsRoutes:
     
     def test_linked_accounts_with_login(self, client):
         """Test linked accounts page with login"""
-        with app.app_context():
-            # Create a test user
-            test_user = User(user_id=1, email='test@example.com', full_name='Test User', role='user')
-            dbs.session.add(test_user)
-            dbs.session.commit()
+        # Create a test user
+        test_user = User(user_id=1, email='test@example.com', full_name='Test User', role='user')
+        dbs.session.add(test_user)
+        dbs.session.commit()
         
         with client.session_transaction() as sess:
             sess['user_id'] = 1
@@ -193,11 +192,10 @@ class TestSearchAndFilter:
     
     def test_team_collaboration_search(self, client):
         """Test team collaboration page with search"""
-        with app.app_context():
-            # Create a manager user
-            manager = User(user_id=1, email='manager@example.com', full_name='Manager', role='manager')
-            dbs.session.add(manager)
-            dbs.session.commit()
+        # Create a manager user
+        manager = User(user_id=1, email='manager@example.com', full_name='Manager', role='manager')
+        dbs.session.add(manager)
+        dbs.session.commit()
         
         with client.session_transaction() as sess:
             sess['user_id'] = 1
@@ -209,11 +207,10 @@ class TestSearchAndFilter:
     
     def test_team_collaboration_filter(self, client):
         """Test team collaboration page with filter"""
-        with app.app_context():
-            # Create a manager user
-            manager = User(user_id=2, email='manager2@example.com', full_name='Manager', role='manager')
-            dbs.session.add(manager)
-            dbs.session.commit()
+        # Create a manager user
+        manager = User(user_id=2, email='manager2@example.com', full_name='Manager', role='manager')
+        dbs.session.add(manager)
+        dbs.session.commit()
         
         with client.session_transaction() as sess:
             sess['user_id'] = 2
@@ -234,11 +231,10 @@ class TestAPIEndpoints:
     
     def test_get_posts_with_login(self, client):
         """Test GET /api/posts with login"""
-        with app.app_context():
-            # Create user for session
-            user = User(user_id=1, email='api_test@example.com', full_name='API Test', role='user')
-            dbs.session.add(user)
-            dbs.session.commit()
+        # Create user for session
+        user = User(user_id=1, email='api_test@example.com', full_name='API Test', role='user')
+        dbs.session.add(user)
+        dbs.session.commit()
         
         with client.session_transaction() as sess:
             sess['user_id'] = 1
@@ -255,17 +251,16 @@ class TestAPIEndpoints:
     
     def test_delete_nonexistent_post(self, client):
         """Test deleting non-existent post"""
-        with app.app_context():
-            # Create user for session
-            user = User(user_id=1, email='delete_test@example.com', full_name='Delete Test', role='user')
-            dbs.session.add(user)
-            dbs.session.commit()
-            
-            with client.session_transaction() as sess:
-                sess['user_id'] = 1
-            
-            response = client.delete('/api/posts/999999')
-            assert response.status_code in [404, 500]
+        # Create user for session
+        user = User(user_id=1, email='delete_test@example.com', full_name='Delete Test', role='user')
+        dbs.session.add(user)
+        dbs.session.commit()
+        
+        with client.session_transaction() as sess:
+            sess['user_id'] = 1
+        
+        response = client.delete('/api/posts/999999')
+        assert response.status_code in [404, 500]
 
 
 class TestFileUpload:
@@ -273,11 +268,10 @@ class TestFileUpload:
     
     def test_upload_route_without_file(self, client):
         """Test upload endpoint without file"""
-        with app.app_context():
-            # Create user for session
-            user = User(user_id=1, email='upload_test@example.com', full_name='Upload Test', role='user')
-            dbs.session.add(user)
-            dbs.session.commit()
+        # Create user for session
+        user = User(user_id=1, email='upload_test@example.com', full_name='Upload Test', role='user')
+        dbs.session.add(user)
+        dbs.session.commit()
         
         with client.session_transaction() as sess:
             sess['user_id'] = 1
@@ -341,11 +335,10 @@ class TestPostSchedulerRoute:
     
     def test_post_scheduler_with_login(self, client):
         """Test post scheduler with login"""
-        with app.app_context():
-            # Create user for session
-            user = User(user_id=1, email='scheduler_test@example.com', full_name='Test User', role='user')
-            dbs.session.add(user)
-            dbs.session.commit()
+        # Create user for session
+        user = User(user_id=1, email='scheduler_test@example.com', full_name='Test User', role='user')
+        dbs.session.add(user)
+        dbs.session.commit()
         
         with client.session_transaction() as sess:
             sess['user_id'] = 1
