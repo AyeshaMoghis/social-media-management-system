@@ -280,9 +280,9 @@
                 </div>
                 <p style="margin: 0.5rem 0; color: #374151;">{{ post.content_text[:100] }}{% if post.content_text|length > 100 %}...{% endif %}</p>
                 
-                {% if post.status == 'scheduled' and post.scheduled_time %}
-                <p style="margin: 0.25rem 0; color: #059669; font-size: 0.875rem; font-weight: 500;">
-                  📅 Scheduled for: {{ post.scheduled_time.strftime('%b %d, %Y at %I:%M %p') }}
+                {% if post.scheduled_time %}
+                <p style="margin: 0.25rem 0; color: {% if post.status == 'pending' %}#f59e0b{% else %}#059669{% endif %}; font-size: 0.875rem; font-weight: 500;">
+                  📅 {% if post.status == 'pending' %}Requested schedule for:{% else %}Scheduled for:{% endif %} {{ post.scheduled_time.strftime('%b %d, %Y at %I:%M %p') }}
                 </p>
                 {% endif %}
                 

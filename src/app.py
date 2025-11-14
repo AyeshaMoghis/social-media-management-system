@@ -149,7 +149,7 @@ class ScheduledPost(dbs.Model):
     post_id = dbs.Column(dbs.Integer, dbs.ForeignKey('post.post_id', ondelete='CASCADE'))
     platform_id = dbs.Column(dbs.Integer, dbs.ForeignKey('platform.platform_id', ondelete='CASCADE'))
     scheduled_time = dbs.Column(dbs.DateTime)
-    status = dbs.Column(dbs.Enum('scheduled', 'published', 'failed'), default='scheduled')
+    status = dbs.Column(dbs.Enum('pending', 'scheduled', 'published', 'failed'), default='scheduled')
     published_at = dbs.Column(dbs.DateTime)
     error_message = dbs.Column(dbs.Text)
 
@@ -418,11 +418,10 @@ def team_collaboration():
             'author': post.author or 'Unknown User'
         }
 
-        # If post is scheduled, get the scheduled time
-        if post.status == 'scheduled':
-            scheduled_post = ScheduledPost.query.filter_by(post_id=post.post_id).first()
-            if scheduled_post:
-                post_data['scheduled_time'] = scheduled_post.scheduled_time
+        # Get scheduled time if exists (for both 'pending' and 'scheduled' posts)
+        scheduled_post = ScheduledPost.query.filter_by(post_id=post.post_id).first()
+        if scheduled_post and scheduled_post.scheduled_time:
+            post_data['scheduled_time'] = scheduled_post.scheduled_time
 
         posts_list.append(post_data)
 
@@ -553,8 +552,25 @@ def update_post_status():
         if not post:
             return {'success': False, 'message': 'Post not found'}, 404
 
-        post.status = action
-        # post.approved_by = session['user_id']  # Removed - not in updated Post model
+        if action == 'approved':
+            # Check if this post has a scheduled time
+            scheduled_post = ScheduledPost.query.filter_by(post_id=post_id).first()
+            
+            if scheduled_post and scheduled_post.scheduled_time:
+                # Post should be scheduled
+                post.status = 'scheduled'
+                scheduled_post.status = 'scheduled'
+                print(f"✅ Approved post {post_id} - Set to scheduled for {scheduled_post.scheduled_time}")
+            else:
+                # No schedule, mark as approved (can be published immediately)
+                post.status = 'approved'
+                print(f"✅ Approved post {post_id} - Set to approved")
+        elif action == 'rejected':
+            post.status = 'rejected'
+            # Update scheduled post status if exists
+            ScheduledPost.query.filter_by(post_id=post_id).update({'status': 'failed'})
+            print(f"❌ Rejected post {post_id}")
+        
         dbs.session.commit()
 
         return {'success': True, 'message': f'Post {action} successfully'}
@@ -713,15 +729,28 @@ def create_post():
             except ValueError:
                 return jsonify({'error': 'Invalid scheduled time format'}), 400
 
-        # Determine final status
-        if status == 'published':
-            final_status = 'published'
-        elif status == 'scheduled' or scheduled_dt:
-            final_status = 'scheduled'
-        else:
+        # Determine final status based on role and request
+        user_role = session.get('role', 'user')
+        
+        if status == 'draft':
+            # Drafts don't need approval
             final_status = 'draft'
+        elif user_role == 'manager':
+            # Managers can directly publish or schedule without approval
+            if status == 'published':
+                final_status = 'published'
+            elif status == 'scheduled' or scheduled_dt:
+                final_status = 'scheduled'
+            else:
+                final_status = 'draft'
+        else:
+            # Regular users: all non-draft posts need approval
+            if status == 'published' or status == 'scheduled' or scheduled_dt:
+                final_status = 'pending'  # Must be approved by manager first
+            else:
+                final_status = 'draft'
 
-        print(f"✅ Final status: '{final_status}'")
+        print(f"✅ User role: {user_role}, Requested status: '{status}', Final status: '{final_status}'")
 
         # Create post
         post = Post(
@@ -743,13 +772,15 @@ def create_post():
                 )
                 dbs.session.add(pp)
 
-                # Create schedule if scheduled
-                if scheduled_dt and final_status == 'scheduled':
-                    print(f"📅 Creating scheduled post for {scheduled_dt}")
+                # Create schedule entry if user requested scheduling
+                # Store the scheduled time even if status is 'pending' (waiting for approval)
+                if scheduled_dt:
+                    print(f"📅 Creating scheduled post entry for {scheduled_dt} (current status: {final_status})")
                     sched = ScheduledPost(
                         post_id=post.post_id,
                         platform_id=account.platform_id,
-                        scheduled_time=scheduled_dt
+                        scheduled_time=scheduled_dt,
+                        status='scheduled' if final_status == 'scheduled' else 'pending'
                     )
                     dbs.session.add(sched)
 
