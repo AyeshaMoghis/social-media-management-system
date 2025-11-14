@@ -3,16 +3,18 @@ Social Media Management System - Flask Application
 Integrates authentication + social media OAuth connections
 """
 # Standard library imports
+from auth import auth, init_auth
 import os
 import secrets
 import hashlib
 import base64
 import json
+import uuid
 from datetime import datetime, timedelta
 from urllib.parse import urlencode
 
 # Third-party imports
-from flask import Flask, render_template, redirect, url_for, session, request, flash
+from flask import Flask, render_template, redirect, url_for, session, request, flash, jsonify, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 import requests
@@ -31,6 +33,17 @@ app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['PERMANENT_SESSION_LIFETIME'] = 3600
 app.config['SESSION_TYPE'] = 'filesystem'
 
+# Upload Configuration
+UPLOAD_FOLDER = 'uploads'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'mp4', 'mov', 'avi', 'webm'}
+MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
+
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE
+
+# Create uploads directory
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
 # ---------------------------
 # DATABASE CONFIGURATION
 # ---------------------------
@@ -39,11 +52,14 @@ if os.environ.get('TESTING') == 'true':
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
     app.config['TESTING'] = True
 else:
+    from urllib.parse import quote_plus
     user = os.getenv('MYSQL_USER', 'root')
     pw = os.getenv('MYSQL_PASSWORD', '')
     host = os.getenv('MYSQL_HOST', '127.0.0.1')
     db_name = os.getenv('MYSQL_DB', 'smms')
-    app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{user}:{pw}@{host}/{db_name}'
+    # URL-encode the password to handle special characters
+    encoded_pw = quote_plus(pw) if pw else ''
+    app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{user}:{encoded_pw}@{host}/{db_name}'
     print(f"🚀 Using MySQL database: {db_name}")
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -88,6 +104,7 @@ class LinkedAccount(dbs.Model):
     platform_id = dbs.Column(dbs.Integer, dbs.ForeignKey('platform.platform_id'))
     access_token = dbs.Column(dbs.Text)
     refresh_token = dbs.Column(dbs.Text)
+    external_id = dbs.Column(dbs.String(255))
     account_username = dbs.Column(dbs.String(100))
     follower_count = dbs.Column(dbs.Integer, default=0)
     post_count = dbs.Column(dbs.Integer, default=0)
@@ -102,6 +119,39 @@ class OAuthState(dbs.Model):
     platform = dbs.Column(dbs.String(50), nullable=False)
     code_verifier = dbs.Column(dbs.String(200))
     created_at = dbs.Column(dbs.DateTime, default=datetime.utcnow)
+
+
+class Post(dbs.Model):
+    __tablename__ = 'post'
+    post_id = dbs.Column(dbs.Integer, primary_key=True)
+    user_id = dbs.Column(dbs.Integer, dbs.ForeignKey('user.user_id'), nullable=False)
+    content_text = dbs.Column(dbs.Text)
+    media_url = dbs.Column(dbs.String(500))
+    status = dbs.Column(dbs.Enum('draft', 'pending', 'approved', 'rejected', 'scheduled', 'published', 'failed'), default='draft')
+    created_at = dbs.Column(dbs.DateTime, default=datetime.utcnow)
+    updated_at = dbs.Column(dbs.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class PostPlatform(dbs.Model):
+    __tablename__ = 'post_platform'
+    id = dbs.Column(dbs.Integer, primary_key=True)
+    post_id = dbs.Column(dbs.Integer, dbs.ForeignKey('post.post_id', ondelete='CASCADE'))
+    platform_id = dbs.Column(dbs.Integer, dbs.ForeignKey('platform.platform_id', ondelete='CASCADE'))
+    platform_post_id = dbs.Column(dbs.String(255))
+    published = dbs.Column(dbs.Boolean, default=False)
+    error_message = dbs.Column(dbs.Text)
+    published_at = dbs.Column(dbs.DateTime)
+
+
+class ScheduledPost(dbs.Model):
+    __tablename__ = 'scheduled_post'
+    schedule_id = dbs.Column(dbs.Integer, primary_key=True)
+    post_id = dbs.Column(dbs.Integer, dbs.ForeignKey('post.post_id', ondelete='CASCADE'))
+    platform_id = dbs.Column(dbs.Integer, dbs.ForeignKey('platform.platform_id', ondelete='CASCADE'))
+    scheduled_time = dbs.Column(dbs.DateTime)
+    status = dbs.Column(dbs.Enum('scheduled', 'published', 'failed'), default='scheduled')
+    published_at = dbs.Column(dbs.DateTime)
+    error_message = dbs.Column(dbs.Text)
 
 
 # ---------------------------
@@ -122,11 +172,81 @@ def cleanup_old_oauth_states():
     dbs.session.commit()
 
 
+def allowed_file(filename):
+    """Check if file extension is allowed"""
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def get_file_type(filename):
+    """Get file type (image/video)"""
+    ext = filename.rsplit('.', 1)[1].lower()
+    if ext in {'png', 'jpg', 'jpeg', 'gif'}:
+        return 'image'
+    elif ext in {'mp4', 'mov', 'avi', 'webm'}:
+        return 'video'
+    return None
+
+
+def check_and_publish_scheduled_posts():
+    """Check for scheduled posts that are past their scheduled time and mark them as published"""
+    try:
+        # Use local time instead of UTC since scheduled times are in local timezone
+        from datetime import datetime as dt
+        current_time = dt.now()
+        print(f"🕐 Current local time: {current_time}")
+        
+        # Find all scheduled posts where the scheduled time has passed
+        scheduled_posts = ScheduledPost.query.filter(
+            ScheduledPost.status == 'scheduled',
+            ScheduledPost.scheduled_time <= current_time
+        ).all()
+        
+        print(f"📋 Found {len(scheduled_posts)} scheduled posts to check")
+        for sp in scheduled_posts:
+            print(f"   - Post {sp.post_id}: scheduled for {sp.scheduled_time}")
+        
+        published_count = 0
+        for sched_post in scheduled_posts:
+            # Update the scheduled post status
+            sched_post.status = 'published'
+            sched_post.published_at = current_time
+            
+            # Update the main post status
+            post = Post.query.get(sched_post.post_id)
+            if post:
+                post.status = 'published'
+                post.updated_at = current_time
+            
+            # Update the post platform status
+            post_platform = PostPlatform.query.filter_by(
+                post_id=sched_post.post_id,
+                platform_id=sched_post.platform_id
+            ).first()
+            if post_platform:
+                post_platform.published = True
+                post_platform.published_at = current_time
+            
+            published_count += 1
+        
+        if published_count > 0:
+            dbs.session.commit()
+            print(f"✅ Auto-published {published_count} scheduled posts")
+        
+        return published_count
+    except Exception as e:
+        print(f"❌ Error checking scheduled posts: {e}")
+        dbs.session.rollback()
+        return 0
+
+
 # ---------------------------
 # IMPORT AUTH BLUEPRINT
 # ---------------------------
-# Import auth blueprint from root folder
-from src.auth import auth
+# Import auth blueprint (from same directory)
+
+# Initialize auth with User model and database
+init_auth(User, dbs)
+
 app.register_blueprint(auth)
 
 
@@ -138,7 +258,7 @@ def home():
     """Landing page - redirects based on login status"""
     if 'user_id' not in session:
         return redirect(url_for('auth.login'))
-    
+
     # User is logged in - redirect to their dashboard
     if session.get('role') == 'manager':
         return redirect(url_for('manager_dashboard'))
@@ -164,7 +284,599 @@ def manager_dashboard():
     if 'user_id' not in session or session.get('role') != 'manager':
         flash("Access denied — Managers only.", "danger")
         return redirect(url_for('auth.login'))
-    return render_template('manager_dashboard.html', name=session.get('full_name'))
+    
+    # Get stats for dashboard
+    total_posts = Post.query.count()
+    pending_approvals = Post.query.filter(Post.status == 'pending').count()
+    connected_accounts = LinkedAccount.query.count()
+    
+    # Get notification count (pending + scheduled posts)
+    notification_count = Post.query.filter(
+        Post.status.in_(['pending', 'scheduled'])
+    ).count()
+    
+    # Get user initial
+    full_name = session.get('full_name', 'Manager')
+    user_initial = full_name[0].upper() if full_name else 'M'
+    
+    # Get recent activity (last 5 posts and accounts)
+    recent_posts = Post.query.order_by(Post.created_at.desc()).limit(5).all()
+    recent_accounts = LinkedAccount.query.order_by(LinkedAccount.linked_at.desc()).limit(5).all()
+    
+    # Combine and sort by date
+    activities = []
+    
+    for post in recent_posts:
+        user = dbs.session.get(User, post.user_id)
+        activities.append({
+            'type': 'post',
+            'title': 'New post submitted',
+            'description': f"{user.full_name if user else 'Unknown'} submitted a post for approval",
+            'timestamp': post.created_at,
+            'status': post.status
+        })
+    
+    for account in recent_accounts:
+        user = dbs.session.get(User, account.user_id)
+        platform = dbs.session.get(Platform, account.platform_id)
+        activities.append({
+            'type': 'account',
+            'title': 'Account connected',
+            'description': f"{user.full_name if user else 'Unknown'} connected {platform.platform_name if platform else 'Unknown'} account",
+            'timestamp': account.linked_at,
+            'status': 'connected'
+        })
+    
+    # Sort by timestamp descending
+    activities.sort(key=lambda x: x['timestamp'], reverse=True)
+    activities = activities[:5]  # Keep only top 5
+    
+    return render_template(
+        'manager_dashboard.html', 
+        name=session.get('full_name'),
+        notification_count=notification_count,
+        user_initial=user_initial,
+        total_posts=total_posts,
+        pending_approvals=pending_approvals,
+        connected_accounts=connected_accounts,
+        activities=activities,
+        now=datetime.now
+    )
+
+
+# ---------------------------
+# TEAM COLLABORATION ROUTES
+# ---------------------------
+@app.route('/team-collaboration')
+def team_collaboration():
+    """Team Collaboration Dashboard for Managers"""
+    if 'user_id' not in session or session.get('role') != 'manager':
+        flash("Access denied — Managers only.", "danger")
+        return redirect(url_for('auth.login'))
+
+    # Get all team members
+    team_members = User.query.all()
+    members_list = [{
+        'user_id': user.user_id,
+        'name': user.full_name or 'Unknown',
+        'email': user.email,
+        'role': user.role
+    } for user in team_members]
+
+    # Get posts for approval (pending and scheduled posts)
+    filter_status = request.args.get('filter', 'all')
+
+    if filter_status == 'all':
+        # Show both pending and scheduled posts by default
+        posts = dbs.session.query(
+            Post.post_id,
+            Post.content_text,
+            Post.status,
+            Post.created_at,
+            User.full_name.label('author')
+        ).join(User, Post.user_id == User.user_id)\
+         .filter(Post.status.in_(['pending', 'scheduled']))\
+         .order_by(Post.created_at.desc()).all()
+    elif filter_status == 'pending':
+        posts = dbs.session.query(
+            Post.post_id,
+            Post.content_text,
+            Post.status,
+            Post.created_at,
+            User.full_name.label('author')
+        ).join(User, Post.user_id == User.user_id)\
+         .filter(Post.status == 'pending')\
+         .order_by(Post.created_at.desc()).all()
+    elif filter_status == 'scheduled':
+        posts = dbs.session.query(
+            Post.post_id,
+            Post.content_text,
+            Post.status,
+            Post.created_at,
+            User.full_name.label('author')
+        ).join(User, Post.user_id == User.user_id)\
+         .filter(Post.status == 'scheduled')\
+         .order_by(Post.created_at.desc()).all()
+    else:
+        posts = dbs.session.query(
+            Post.post_id,
+            Post.content_text,
+            Post.status,
+            Post.created_at,
+            User.full_name.label('author')
+        ).join(User, Post.user_id == User.user_id)\
+         .filter(Post.status == filter_status)\
+         .order_by(Post.created_at.desc()).all()
+
+    posts_list = []
+    for post in posts:
+        post_data = {
+            'post_id': post.post_id,
+            'content_text': post.content_text or '',
+            'status': post.status,
+            'created_at': post.created_at,
+            'author': post.author or 'Unknown User'
+        }
+
+        # If post is scheduled, get the scheduled time
+        if post.status == 'scheduled':
+            scheduled_post = ScheduledPost.query.filter_by(post_id=post.post_id).first()
+            if scheduled_post:
+                post_data['scheduled_time'] = scheduled_post.scheduled_time
+
+        posts_list.append(post_data)
+
+    # Get notification count (pending + scheduled posts)
+    notification_count = Post.query.filter(Post.status.in_(['pending', 'scheduled'])).count()
+
+    # Get user initial for avatar
+    user_initial = session.get('full_name', 'M')[0].upper()
+
+    return render_template(
+        'team_collaboration.html',
+        team_members=members_list,
+        pending_posts=posts_list,
+        notification_count=notification_count,
+        user_initial=user_initial,
+        session=session
+    )
+
+
+@app.route('/invite_member', methods=['POST'])
+def invite_member():
+    """Invite a new team member"""
+    if 'user_id' not in session or session.get('role') != 'manager':
+        return {'success': False, 'message': 'Access denied'}, 403
+
+    try:
+        data = request.get_json()
+        name = data.get('name')
+        email = data.get('email')
+        role = data.get('role', 'user')
+
+        # Check if email already exists
+        existing_user = User.query.filter_by(email=email).first()
+        if existing_user:
+            return {'success': False, 'message': 'Email already registered'}, 400
+
+        # Generate temporary password
+        import secrets
+        import string
+        temp_password = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(12))
+
+        # Hash password
+        from werkzeug.security import generate_password_hash
+        hashed_password = generate_password_hash(temp_password)
+
+        # Create new user
+        new_user = User(
+            email=email,
+            full_name=name,
+            role=role
+        )
+
+        # Add password_hash column if doesn't exist in model
+        # For now, we'll use SQLAlchemy raw SQL to insert
+        from sqlalchemy import text
+        query = text("""
+            INSERT INTO user (email, password_hash, full_name, role)
+            VALUES (:email, :password_hash, :full_name, :role)
+        """)
+
+        dbs.session.execute(query, {
+            'email': email,
+            'password_hash': hashed_password,
+            'full_name': name,
+            'role': role
+        })
+        dbs.session.commit()
+
+        # Get the newly created user
+        new_user = User.query.filter_by(email=email).first()
+
+        return {
+            'success': True,
+            'message': f'Successfully invited {name}!',
+            'temp_password': temp_password,
+            'member': {
+                'user_id': new_user.user_id,
+                'name': new_user.full_name,
+                'email': new_user.email,
+                'role': new_user.role
+            }
+        }
+
+    except Exception as e:
+        dbs.session.rollback()
+        print(f"Error inviting member: {e}")
+        return {'success': False, 'message': str(e)}, 500
+
+
+@app.route('/search_members')
+def search_members():
+    """Search team members by name or email"""
+    if 'user_id' not in session:
+        return [], 403
+
+    query = request.args.get('query', '').lower()
+
+    if not query:
+        # Return all members if no query
+        members = User.query.all()
+    else:
+        # Search by name or email
+        members = User.query.filter(
+            (User.full_name.ilike(f'%{query}%')) |
+            (User.email.ilike(f'%{query}%'))
+        ).all()
+
+    return [{
+        'user_id': user.user_id,
+        'name': user.full_name or 'Unknown',
+        'email': user.email,
+        'role': user.role
+    } for user in members]
+
+
+@app.route('/update_post_status', methods=['POST'])
+def update_post_status():
+    """Update post approval status"""
+    if 'user_id' not in session or session.get('role') != 'manager':
+        return {'success': False, 'message': 'Access denied'}, 403
+
+    try:
+        data = request.get_json()
+        post_id = data.get('post_id')
+        action = data.get('action')  # 'approved' or 'rejected'
+
+        post = dbs.session.get(Post, post_id)
+        if not post:
+            return {'success': False, 'message': 'Post not found'}, 404
+
+        post.status = action
+        # post.approved_by = session['user_id']  # Removed - not in updated Post model
+        dbs.session.commit()
+
+        return {'success': True, 'message': f'Post {action} successfully'}
+
+    except Exception as e:
+        dbs.session.rollback()
+        print(f"Error updating post status: {e}")
+        return {'success': False, 'message': str(e)}, 500
+
+
+# ---------------------------
+# POST SCHEDULER ROUTES
+# ---------------------------
+@app.route('/post-scheduler')
+def post_scheduler():
+    """Post scheduler page - for users to create and schedule posts"""
+    if 'user_id' not in session:
+        flash("Please log in first", "warning")
+        return redirect(url_for('auth.login'))
+
+    user = current_user()
+
+    # Get user's linked accounts
+    accounts = LinkedAccount.query.filter_by(user_id=user.user_id).all()
+
+    account_list = []
+    for acc in accounts:
+        platform = dbs.session.get(Platform, acc.platform_id)
+        if platform and acc.access_token:
+            account_list.append({
+                'account_id': acc.account_id,
+                'platform_name': platform.platform_name,
+                'account_username': acc.account_username,
+                'platform_id': acc.platform_id
+            })
+
+    # If no accounts linked, redirect to linked accounts page
+    if not account_list:
+        flash("Please connect at least one social media account first", "warning")
+        return redirect(url_for('linked_accounts'))
+
+    # Get notification count (pending + scheduled posts)
+    notification_count = Post.query.filter(
+        Post.status.in_(['pending', 'scheduled'])
+    ).count()
+    
+    # Get user initial
+    full_name = session.get('full_name', user.full_name if user else 'User')
+    user_initial = full_name[0].upper() if full_name else 'U'
+
+    return render_template(
+        'create_schedule_posts.html', 
+        user=user, 
+        accounts=account_list,
+        notification_count=notification_count,
+        user_initial=user_initial
+    )
+
+
+@app.route('/api/posts', methods=['GET'])
+def get_posts():
+    """Get all posts for current user"""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        # Check and publish scheduled posts that are past their scheduled time
+        check_and_publish_scheduled_posts()
+        
+        user_id = session['user_id']
+        status = request.args.get('status')
+        limit = request.args.get('limit', 50, type=int)
+
+        # Get posts for this user
+        query = Post.query.filter_by(user_id=user_id)
+        if status:
+            query = query.filter_by(status=status)
+
+        posts = query.order_by(Post.created_at.desc()).limit(limit).all()
+
+        posts_list = []
+        for post in posts:
+            platforms = PostPlatform.query.filter_by(post_id=post.post_id).all()
+            platform_data = []
+            for pp in platforms:
+                platform = dbs.session.get(Platform, pp.platform_id)
+                platform_data.append({
+                    'platform_name': platform.platform_name if platform else 'Unknown',
+                    'published': pp.published,
+                    'published_at': pp.published_at.strftime('%Y-%m-%d %H:%M:%S') if pp.published_at else None
+                })
+
+            # Get scheduled time if post is scheduled
+            scheduled_time = None
+            if post.status == 'scheduled':
+                scheduled_post = ScheduledPost.query.filter_by(post_id=post.post_id).first()
+                if scheduled_post and scheduled_post.scheduled_time:
+                    scheduled_time = scheduled_post.scheduled_time.strftime('%Y-%m-%d %H:%M:%S')
+
+            posts_list.append({
+                'id': post.post_id,
+                'text': post.content_text,
+                'media_url': post.media_url,
+                'status': post.status,
+                'created_at': post.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                'updated_at': post.updated_at.strftime('%Y-%m-%d %H:%M:%S'),
+                'scheduled_time': scheduled_time,
+                'platforms': platform_data
+            })
+
+        return jsonify(posts_list), 200
+
+    except Exception as e:
+        print(f"Error getting posts: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/posts', methods=['POST'])
+def create_post():
+    """Create a new post"""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        user_id = session['user_id']
+        text = request.form.get('text', '')
+        account_ids = request.form.getlist('account_ids[]')
+        scheduled_time = request.form.get('scheduled_time')
+        status = request.form.get('status', 'draft')
+
+        print(f"📝 Creating post - Status: '{status}', Scheduled time: '{scheduled_time}'")
+
+        media_file = request.files.get('media')
+        if not text and not media_file:
+            return jsonify({'error': 'Post must contain text or media'}), 400
+        if not account_ids:
+            return jsonify({'error': 'At least one account must be selected'}), 400
+
+        # Handle file upload
+        media_url = None
+        if media_file and media_file.filename:
+            if allowed_file(media_file.filename):
+                file_ext = media_file.filename.rsplit('.', 1)[1].lower()
+                unique_filename = f"{uuid.uuid4()}.{file_ext}"
+                file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+                media_file.save(file_path)
+                media_url = file_path
+            else:
+                return jsonify({'error': 'Invalid file type'}), 400
+
+        # Parse schedule time
+        scheduled_dt = None
+        if scheduled_time:
+            try:
+                scheduled_dt = datetime.strptime(scheduled_time, '%Y-%m-%dT%H:%M')
+            except ValueError:
+                return jsonify({'error': 'Invalid scheduled time format'}), 400
+
+        # Determine final status
+        if status == 'published':
+            final_status = 'published'
+        elif status == 'scheduled' or scheduled_dt:
+            final_status = 'scheduled'
+        else:
+            final_status = 'draft'
+
+        print(f"✅ Final status: '{final_status}'")
+
+        # Create post
+        post = Post(
+            user_id=user_id,
+            content_text=text,
+            media_url=media_url,
+            status=final_status
+        )
+        dbs.session.add(post)
+        dbs.session.flush()
+
+        # Link platforms
+        for account_id in account_ids:
+            account = LinkedAccount.query.get(account_id)
+            if account and account.user_id == user_id:
+                pp = PostPlatform(
+                    post_id=post.post_id,
+                    platform_id=account.platform_id
+                )
+                dbs.session.add(pp)
+
+                # Create schedule if scheduled
+                if scheduled_dt and final_status == 'scheduled':
+                    print(f"📅 Creating scheduled post for {scheduled_dt}")
+                    sched = ScheduledPost(
+                        post_id=post.post_id,
+                        platform_id=account.platform_id,
+                        scheduled_time=scheduled_dt
+                    )
+                    dbs.session.add(sched)
+
+        dbs.session.commit()
+
+        return jsonify({
+            'message': 'Post created successfully',
+            'post_id': post.post_id
+        }), 201
+
+    except Exception as e:
+        dbs.session.rollback()
+        print(f"Error creating post: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/posts/<int:post_id>', methods=['PUT'])
+def update_post(post_id):
+    """Update an existing post"""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        user_id = session['user_id']
+        post = Post.query.filter_by(post_id=post_id, user_id=user_id).first()
+
+        if not post:
+            return jsonify({'error': 'Post not found'}), 404
+
+        # Get form data
+        text = request.form.get('text')
+        if text is not None:
+            post.content_text = text
+
+        status = request.form.get('status', post.status)
+        scheduled_time = request.form.get('scheduled_time')
+
+        print(f"📝 Updating post {post_id} - Status: {status}, Scheduled: {scheduled_time}")
+
+        # Handle status changes
+        if status == 'published':
+            post.status = 'published'
+            ScheduledPost.query.filter_by(post_id=post.post_id).delete()
+            PostPlatform.query.filter_by(post_id=post.post_id).update({
+                'published': True,
+                'published_at': datetime.now()
+            })
+
+        elif status == 'scheduled' and scheduled_time:
+            try:
+                scheduled_dt = datetime.strptime(scheduled_time, '%Y-%m-%dT%H:%M')
+                post.status = 'scheduled'
+
+                scheduled_post = ScheduledPost.query.filter_by(post_id=post.post_id).first()
+                if scheduled_post:
+                    scheduled_post.scheduled_time = scheduled_dt
+                    scheduled_post.status = 'scheduled'
+                else:
+                    post_platform = PostPlatform.query.filter_by(post_id=post.post_id).first()
+                    if post_platform:
+                        new_sched = ScheduledPost(
+                            post_id=post.post_id,
+                            platform_id=post_platform.platform_id,
+                            scheduled_time=scheduled_dt,
+                            status='scheduled'
+                        )
+                        dbs.session.add(new_sched)
+
+            except ValueError:
+                return jsonify({'error': 'Invalid scheduled time format'}), 400
+
+        elif status == 'draft':
+            post.status = 'draft'
+            ScheduledPost.query.filter_by(post_id=post.post_id).delete()
+
+        post.updated_at = datetime.now()
+        dbs.session.commit()
+
+        print(f"✅ Updated post {post_id} to status: {post.status}")
+        return jsonify({'message': 'Post updated successfully'}), 200
+
+    except Exception as e:
+        dbs.session.rollback()
+        print(f"❌ Error updating post: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/posts/<int:post_id>', methods=['DELETE'])
+def delete_post(post_id):
+    """Delete a post"""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        user_id = session['user_id']
+        post = Post.query.filter_by(post_id=post_id, user_id=user_id).first()
+
+        if not post:
+            return jsonify({'error': 'Post not found'}), 404
+
+        # Delete media file
+        if post.media_url and os.path.exists(post.media_url):
+            os.remove(post.media_url)
+
+        # Delete scheduled posts first (foreign key constraint)
+        ScheduledPost.query.filter_by(post_id=post.post_id).delete()
+
+        # Delete post platforms
+        PostPlatform.query.filter_by(post_id=post.post_id).delete()
+
+        # Delete post
+        dbs.session.delete(post)
+        dbs.session.commit()
+
+        print(f"✅ Deleted post {post_id}")
+        return jsonify({'message': 'Post deleted successfully'}), 200
+
+    except Exception as e:
+        dbs.session.rollback()
+        print(f"❌ Error deleting post: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/uploads/<filename>')
+def uploaded_file(filename):
+    """Serve uploaded files"""
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 
 # ---------------------------
@@ -175,13 +887,13 @@ def linked_accounts():
     """Display all linked social media accounts for current user"""
     if 'user_id' not in session:
         return redirect(url_for('auth.login'))
-    
+
     user_id = session['user_id']
     user = dbs.session.get(User, user_id)
-    
+
     if not user:
         return redirect(url_for('auth.login'))
-    
+
     accounts = LinkedAccount.query.filter_by(user_id=user.user_id).all()
 
     account_list = []
@@ -206,12 +918,16 @@ def linked_accounts():
         'linked_accounts.html',
         user=user,
         accounts=account_list,
-        now=datetime.utcnow()
+        now=datetime.utcnow(),
+        notification_count=Post.query.filter(Post.status.in_(['pending', 'scheduled'])).count(),
+        user_initial=session.get('full_name', user.full_name if user else 'U')[0].upper() if session.get('full_name') or (user and user.full_name) else 'U'
     )
 
 # ---------------------------
 # LINKEDIN AUTH
 # ---------------------------
+
+
 @app.route('/connect/linkedin')
 def connect_linkedin():
     """Initiate LinkedIn OAuth flow"""
@@ -219,14 +935,14 @@ def connect_linkedin():
     if 'user_id' not in session:
         flash("Please log in first", "danger")
         return redirect(url_for('auth.login'))
-    
+
     user_id = session['user_id']
     active_user = dbs.session.get(User, user_id)
-    
+
     if not active_user:
         flash("User not found", "danger")
         return redirect(url_for('auth.login'))
-    
+
     print(f"✅ User {active_user.user_id} starting LinkedIn connection")
 
     linkedin = Platform.query.filter_by(platform_name='LinkedIn').first()
@@ -261,6 +977,7 @@ def connect_linkedin():
     )
 
     return redirect(auth_url)
+
 
 @app.route('/callback/linkedin')
 def linkedin_callback():
@@ -365,14 +1082,14 @@ def connect_twitter():
     if 'user_id' not in session:
         flash("Please log in first", "danger")
         return redirect(url_for('auth.login'))
-    
+
     user_id = session['user_id']
     active_user = dbs.session.get(User, user_id)
-    
+
     if not active_user:
         flash("User not found", "danger")
         return redirect(url_for('auth.login'))
-    
+
     print(f"✅ User {active_user.user_id} starting Twitter connection")
 
     twitter_platform = Platform.query.filter_by(platform_name='Twitter').first()
@@ -417,6 +1134,7 @@ def connect_twitter():
     auth_url = f"https://twitter.com/i/oauth2/authorize?{urlencode(auth_params)}"
     print(f"➡️ Redirecting to Twitter with state: {state}")
     return redirect(auth_url)
+
 
 @app.route('/callback/twitter')
 def callback_twitter():
@@ -551,9 +1269,9 @@ def refresh_account(account_id):
     """Refresh account data from social media platform"""
     if 'user_id' not in session:
         return redirect(url_for('auth.login'))
-    
+
     user_id = session['user_id']
-    
+
     acc = LinkedAccount.query.filter_by(
         account_id=account_id,
         user_id=user_id
@@ -611,14 +1329,15 @@ def refresh_account(account_id):
 
     return redirect(url_for("linked_accounts"))
 
+
 @app.route('/disconnect-account/<int:account_id>')
 def disconnect_account(account_id):
     """Disconnect and remove a linked account"""
     if 'user_id' not in session:
         return redirect(url_for('auth.login'))
-    
+
     user_id = session['user_id']
-    
+
     acc = LinkedAccount.query.filter_by(
         account_id=account_id,
         user_id=user_id
@@ -631,13 +1350,14 @@ def disconnect_account(account_id):
 
     return redirect(url_for('linked_accounts'))
 
+
 @app.route('/account-details/<int:account_id>')
 def account_details(account_id):
     """Display detailed information for a linked account"""
     if 'user_id' not in session:
         flash("Please log in first.", "warning")
         return redirect(url_for('auth.login'))
-    
+
     user_id = session['user_id']
     acc = LinkedAccount.query.filter_by(
         account_id=account_id,

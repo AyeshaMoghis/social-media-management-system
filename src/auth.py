@@ -1,16 +1,20 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from werkzeug.security import generate_password_hash, check_password_hash
-import mysql.connector
+from sqlalchemy import text
 
 auth = Blueprint('auth', __name__, template_folder='templates')
 
-def get_db_connection():
-    return mysql.connector.connect(
-        host="localhost",
-        user="smms_user",
-        password="REDACTED_HARDCODED",
-        database="smms"
-    )
+# These will be set by the main app
+User = None
+dbs = None
+
+
+def init_auth(user_model, database):
+    """Initialize auth with User model and database from main app"""
+    global User, dbs
+    User = user_model
+    dbs = database
+
 
 @auth.route('/signup', methods=['GET', 'POST'])
 def signup():
@@ -21,22 +25,36 @@ def signup():
         role = request.form['role']
 
         hashed_pw = generate_password_hash(password)
-        db = get_db_connection()
-        cursor = db.cursor()
+
+        if not User or not dbs:
+            flash("Database error. Please try again.", "danger")
+            return render_template('signup.html')
+
         try:
-            cursor.execute(
-                "INSERT INTO user (email, password_hash, full_name, role) VALUES (%s, %s, %s, %s)",
-                (email, hashed_pw, full_name, role)
-            )
-            db.commit()
+            # Check if user already exists
+            existing_user = User.query.filter_by(email=email).first()
+            if existing_user:
+                flash("Email already registered. Please login.", "danger")
+                return render_template('signup.html')
+
+            # Create new user using SQLAlchemy
+            query = text("""
+                INSERT INTO user (email, password_hash, full_name, role)
+                VALUES (:email, :password_hash, :full_name, :role)
+            """)
+
+            dbs.session.execute(query, {
+                'email': email,
+                'password_hash': hashed_pw,
+                'full_name': full_name,
+                'role': role
+            })
+            dbs.session.commit()
             flash(f"Account created successfully as {role.capitalize()}! Please log in.", "success")
             return redirect(url_for('auth.login'))
         except Exception as e:
-            # This catches both mysql.connector.Error and mocked exceptions
+            dbs.session.rollback()
             flash(f"Error: {e}", "danger")
-        finally:
-            cursor.close()
-            db.close()
     return render_template('signup.html')
 
 
@@ -46,25 +64,35 @@ def login():
         email = request.form['email']
         password = request.form['password']
 
-        db = get_db_connection()
-        cursor = db.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM user WHERE email = %s", (email,))
-        user = cursor.fetchone()
-        cursor.close()
-        db.close()
+        if not User or not dbs:
+            flash("Database error. Please try again.", "danger")
+            return render_template('login.html')
 
-        if user and check_password_hash(user['password_hash'], password):
-            session['user_id'] = user['user_id']
-            session['full_name'] = user['full_name']
-            session['role'] = user['role']
-            flash("Login successful!", "success")
+        try:
+            # Query user using SQLAlchemy
+            user = User.query.filter_by(email=email).first()
 
-            if user['role'] == 'manager':
-                return redirect(url_for('manager_dashboard'))
+            if user:
+                # Get password_hash from database using raw query (in case model doesn't have it)
+                query = text("SELECT password_hash FROM user WHERE email = :email")
+                result = dbs.session.execute(query, {'email': email}).fetchone()
+
+                if result and check_password_hash(result[0], password):
+                    session['user_id'] = user.user_id
+                    session['full_name'] = user.full_name
+                    session['role'] = user.role
+                    flash("Login successful!", "success")
+
+                    if user.role == 'manager':
+                        return redirect(url_for('manager_dashboard'))
+                    else:
+                        return redirect(url_for('user_dashboard'))
+                else:
+                    flash("Invalid credentials. Try again.", "danger")
             else:
-                return redirect(url_for('user_dashboard'))
-        else:
-            flash("Invalid credentials. Try again.", "danger")
+                flash("Invalid credentials. Try again.", "danger")
+        except Exception as e:
+            flash(f"Login error: {e}", "danger")
 
     return render_template('login.html')
 
