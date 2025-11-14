@@ -26,6 +26,11 @@ class TestDashboardRoutes:
     
     def test_user_dashboard_with_login(self, client):
         """Test user dashboard with logged in user"""
+        # Create user for session
+        user = User(user_id=1, email='dashboard_user@example.com', full_name='Test User', role='user')
+        dbs.session.add(user)
+        dbs.session.commit()
+        
         with client.session_transaction() as sess:
             sess['user_id'] = 1
             sess['full_name'] = 'Test User'
@@ -41,6 +46,11 @@ class TestDashboardRoutes:
     
     def test_manager_dashboard_with_user_role(self, client):
         """Test manager dashboard blocks non-manager users"""
+        # Create regular user
+        user = User(user_id=1, email='regular_user@example.com', full_name='Regular User', role='user')
+        dbs.session.add(user)
+        dbs.session.commit()
+        
         with client.session_transaction() as sess:
             sess['user_id'] = 1
             sess['full_name'] = 'Regular User'
@@ -51,6 +61,11 @@ class TestDashboardRoutes:
     
     def test_manager_dashboard_with_manager_role(self, client):
         """Test manager dashboard allows manager access"""
+        # Create manager user
+        manager = User(user_id=1, email='manager_user@example.com', full_name='Manager User', role='manager')
+        dbs.session.add(manager)
+        dbs.session.commit()
+        
         with client.session_transaction() as sess:
             sess['user_id'] = 1
             sess['full_name'] = 'Manager User'
@@ -89,16 +104,15 @@ class TestLinkedAccountsRoutes:
     
     def test_account_details_with_login(self, client):
         """Test account details with login"""
-        with app.app_context():
-            # Get a linked account
-            linked_account = LinkedAccount.query.first()
-            if linked_account:
-                with client.session_transaction() as sess:
-                    sess['user_id'] = linked_account.user_id
-                    sess['full_name'] = 'Test User'
-                
-                response = client.get(f'/account-details/{linked_account.account_id}')
-                assert response.status_code == 200
+        # Get a linked account
+        linked_account = LinkedAccount.query.first()
+        if linked_account:
+            with client.session_transaction() as sess:
+                sess['user_id'] = linked_account.user_id
+                sess['full_name'] = 'Test User'
+            
+            response = client.get(f'/account-details/{linked_account.account_id}')
+            assert response.status_code == 200
 
 
 class TestOAuthRoutes:
@@ -111,6 +125,11 @@ class TestOAuthRoutes:
     
     def test_connect_twitter_with_login(self, client):
         """Test Twitter OAuth connection"""
+        # Create user for session
+        user = User(user_id=1, email='twitter_oauth@example.com', full_name='Test User', role='user')
+        dbs.session.add(user)
+        dbs.session.commit()
+        
         with client.session_transaction() as sess:
             sess['user_id'] = 1
             sess['full_name'] = 'Test User'
@@ -126,6 +145,11 @@ class TestOAuthRoutes:
     
     def test_connect_linkedin_with_login(self, client):
         """Test LinkedIn OAuth connection"""
+        # Create user for session
+        user = User(user_id=1, email='linkedin_oauth@example.com', full_name='Test User', role='user')
+        dbs.session.add(user)
+        dbs.session.commit()
+        
         with client.session_transaction() as sess:
             sess['user_id'] = 1
             sess['full_name'] = 'Test User'
@@ -318,6 +342,11 @@ class TestInviteMember:
     
     def test_invite_member_as_user(self, client):
         """Test invite member requires manager role"""
+        # Create regular user
+        user = User(user_id=1, email='invite_user@example.com', full_name='Regular User', role='user')
+        dbs.session.add(user)
+        dbs.session.commit()
+        
         with client.session_transaction() as sess:
             sess['user_id'] = 1
             sess['role'] = 'user'
