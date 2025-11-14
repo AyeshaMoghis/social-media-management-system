@@ -21,7 +21,7 @@ class TestDashboardRoutes:
     
     def test_user_dashboard_without_login(self, client):
         """Test user dashboard redirects without login"""
-        response = client.get('/user-dashboard', follow_redirects=False)
+        response = client.get('/dashboard/user', follow_redirects=False)
         assert response.status_code == 302
     
     def test_user_dashboard_with_login(self, client):
@@ -31,12 +31,12 @@ class TestDashboardRoutes:
             sess['full_name'] = 'Test User'
             sess['role'] = 'user'
         
-        response = client.get('/user-dashboard')
+        response = client.get('/dashboard/user')
         assert response.status_code in [200, 302]
     
     def test_manager_dashboard_without_login(self, client):
         """Test manager dashboard redirects without login"""
-        response = client.get('/manager-dashboard', follow_redirects=False)
+        response = client.get('/dashboard/manager', follow_redirects=False)
         assert response.status_code == 302
     
     def test_manager_dashboard_with_user_role(self, client):
@@ -46,7 +46,7 @@ class TestDashboardRoutes:
             sess['full_name'] = 'Regular User'
             sess['role'] = 'user'
         
-        response = client.get('/manager-dashboard', follow_redirects=False)
+        response = client.get('/dashboard/manager', follow_redirects=False)
         assert response.status_code == 302
     
     def test_manager_dashboard_with_manager_role(self, client):
