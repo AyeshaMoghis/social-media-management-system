@@ -508,7 +508,7 @@ class TestErrorHandlingIntegration(BaseIntegrationTest):
         
         # Should return error
         assert response.status_code == 400
-        assert b'Token exchange failed' in response.data
+        assert b'Failed to get Twitter access token' in response.data
         
         # No account should be created
         with app.app_context():
