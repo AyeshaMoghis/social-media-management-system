@@ -337,6 +337,7 @@ class TestMultiplePlatformLinking(BaseIntegrationTest):
         mock_get.return_value.status_code = 200
         mock_get.return_value.json.return_value = {
             "data": {
+                "id": "twitter_user_multi_123",
                 "username": "user123",
                 "name": "Test User",
                 "public_metrics": {
@@ -358,12 +359,18 @@ class TestMultiplePlatformLinking(BaseIntegrationTest):
             dbs.session.add(linkedin_state)
             dbs.session.commit()
         
-        id_token_payload = {"name": "Test User", "email": "multi@example.com"}
+        id_token_payload = {"sub": "linkedin_user_multi_456", "name": "Test User", "email": "multi@example.com"}
         encoded = base64.urlsafe_b64encode(json.dumps(id_token_payload).encode()).decode()
         
         mock_post.return_value.json.return_value = {
             "access_token": "linkedin_token",
             "id_token": f"h.{encoded}.s"
+        }
+        
+        mock_get.return_value.json.return_value = {
+            "sub": "linkedin_user_multi_456",
+            "name": "Test User",
+            "email": "multi@example.com"
         }
         
         client.get('/callback/linkedin?code=code2&state=linkedin_state_multi')
