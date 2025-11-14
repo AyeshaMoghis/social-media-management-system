@@ -56,7 +56,7 @@ class TestDashboardRoutes:
             sess['full_name'] = 'Manager User'
             sess['role'] = 'manager'
         
-        response = client.get('/manager-dashboard')
+        response = client.get('/dashboard/manager')
         assert response.status_code == 200
 
 
@@ -92,7 +92,7 @@ class TestLinkedAccountsRoutes:
                     sess['user_id'] = linked_account.user_id
                     sess['full_name'] = 'Test User'
                 
-                response = client.get(f'/account-details/{linked_account.linked_account_id}')
+                response = client.get(f'/account-details/{linked_account.account_id}')
                 assert response.status_code == 200
 
 
