@@ -21,6 +21,7 @@ ENV/
 htmlcov/
 *.cover
 .hypothesis/
+coverage_reports/
 
 # Database
 *.db

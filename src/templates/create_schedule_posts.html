@@ -197,25 +197,37 @@
 
         .platform-btn {
             padding: 12px 24px;
-            border: 1px solid #e2e8f0;
+            border: 2px solid #e2e8f0;
             border-radius: 20px;
             background: white;
+            color: #334155;
             cursor: pointer;
             display: flex;
             align-items: center;
             gap: 10px;
             font-size: 15px;
+            font-weight: 500;
             transition: all 0.2s;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
 
         .platform-btn:hover {
             border-color: #06b6d4;
+            background: #f0fdfa;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
 
         .platform-btn.active {
             background: #ec4899;
             color: white;
             border-color: #ec4899;
+            transform: scale(1.05);
+        }
+
+        .platform-btn.active.instagram {
+            background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+            border-color: #dc2743;
         }
 
         .platform-btn.active.facebook {
@@ -231,6 +243,27 @@
         .platform-btn.active.linkedin {
             background: #0a66c2;
             border-color: #0a66c2;
+        }
+
+        /* Platform-specific icons colors when not active */
+        .platform-btn.linkedin {
+            border-color: #0a66c2;
+            color: #0a66c2;
+        }
+
+        .platform-btn.facebook {
+            border-color: #1877f2;
+            color: #1877f2;
+        }
+
+        .platform-btn.instagram {
+            border-color: #e4405f;
+            color: #e4405f;
+        }
+
+        .platform-btn.x {
+            border-color: #000000;
+            color: #000000;
         }
 
         .datetime-group {
@@ -724,6 +757,45 @@ function removeMedia() {
 // Platform selection
 // =======================
 document.addEventListener('DOMContentLoaded', () => {
+  // Initialize date and time inputs
+  const postDateInput = document.getElementById('postDate');
+  const postTimeInput = document.getElementById('postTime');
+  
+  // Set default date to today
+  const now = new Date();
+  const today = now.toISOString().split('T')[0];
+  postDateInput.value = today;
+  postDateInput.min = today; // Prevent selecting past dates
+  
+  // Leave time blank - user will select their own time
+  postTimeInput.value = '';
+  
+  // Add event listener to validate time when input loses focus (not during typing)
+  postDateInput.addEventListener('blur', function() {
+    validateDateTime();
+  });
+  
+  postTimeInput.addEventListener('blur', function() {
+    validateDateTime();
+  });
+  
+  function validateDateTime() {
+    const selectedDate = postDateInput.value;
+    const selectedTime = postTimeInput.value;
+    
+    if (!selectedDate || !selectedTime) return;
+    
+    const selectedDateTime = new Date(`${selectedDate}T${selectedTime}`);
+    const currentDateTime = new Date();
+    
+    // If selected time is in the past, show error and clear the time
+    if (selectedDateTime <= currentDateTime) {
+      postTimeInput.value = ''; // Clear the time field
+      showNotification('Cannot schedule in the past. Please select a future time.', 'error');
+    }
+  }
+  
+  // Platform button selection
   document.querySelectorAll('.platform-btn').forEach(btn => {
     btn.addEventListener('click', function() {
       const accId = this.getAttribute('data-account-id');
@@ -758,10 +830,28 @@ document.getElementById('postNowBtn').addEventListener('click', () => savePost('
 document.getElementById('scheduleBtn').addEventListener('click', () => {
   const date = document.getElementById('postDate').value;
   const time = document.getElementById('postTime').value;
+  
   if (!date || !time) {
     showNotification('Please select date and time for scheduling', 'error');
     return;
   }
+  
+  // Validate that scheduled time is not in the past
+  const scheduledDateTime = new Date(`${date}T${time}`);
+  const currentDateTime = new Date();
+  
+  if (scheduledDateTime < currentDateTime) {
+    showNotification('Cannot schedule a post in the past. Please select a future date and time.', 'error');
+    return;
+  }
+  
+  // Check if scheduled time is too soon (less than 1 minute from now)
+  const timeDiff = scheduledDateTime - currentDateTime;
+  if (timeDiff < 60000) { // 60000 ms = 1 minute
+    showNotification('Please schedule at least 1 minute in the future.', 'error');
+    return;
+  }
+  
   savePost('scheduled');
 });
 

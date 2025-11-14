@@ -281,17 +281,26 @@
                 <p style="margin: 0.5rem 0; color: #374151;">{{ post.content_text[:100] }}{% if post.content_text|length > 100 %}...{% endif %}</p>
                 
                 {% if post.scheduled_time %}
-                <p style="margin: 0.25rem 0; color: {% if post.status == 'pending' %}#f59e0b{% else %}#059669{% endif %}; font-size: 0.875rem; font-weight: 500;">
-                  📅 {% if post.status == 'pending' %}Requested schedule for:{% else %}Scheduled for:{% endif %} {{ post.scheduled_time.strftime('%b %d, %Y at %I:%M %p') }}
-                </p>
+                  {% set time_passed = post.scheduled_time < current_time %}
+                  <p style="margin: 0.25rem 0; color: {% if time_passed %}#dc2626{% elif post.status == 'pending' %}#f59e0b{% else %}#059669{% endif %}; font-size: 0.875rem; font-weight: 500;">
+                    {% if time_passed %}
+                      ⚠️ <strong>EXPIRED:</strong> Scheduled time passed - {{ post.scheduled_time.strftime('%b %d, %Y at %I:%M %p') }}
+                    {% else %}
+                      📅 {% if post.status == 'pending' %}Requested schedule for:{% else %}Scheduled for:{% endif %} {{ post.scheduled_time.strftime('%b %d, %Y at %I:%M %p') }}
+                    {% endif %}
+                  </p>
                 {% endif %}
                 
                 <span class="request-badge {% if post.status == 'scheduled' %}badge-scheduled{% else %}badge-pending{% endif %}">{{ post.status|title }}</span>
                 <a href="#" class="activity-link" onclick="viewPostDetails({{ post.post_id }})">→ View details</a>
                 {% if post.status == 'pending' or post.status == 'scheduled' %}
                 <div class="request-actions">
-                  <button class="btn-approve" onclick="updatePostStatus({{ post.post_id }}, 'approved')">✓ Approve</button>
-                  <button class="btn-reject" onclick="updatePostStatus({{ post.post_id }}, 'rejected')">✗ Reject</button>
+                  {% if post.scheduled_time and post.scheduled_time < current_time %}
+                    <button class="btn-reject" onclick="updatePostStatus({{ post.post_id }}, 'rejected')" style="width: 100%;">✗ Reject (Time Passed)</button>
+                  {% else %}
+                    <button class="btn-approve" onclick="updatePostStatus({{ post.post_id }}, 'approved')">✓ Approve</button>
+                    <button class="btn-reject" onclick="updatePostStatus({{ post.post_id }}, 'rejected')">✗ Reject</button>
+                  {% endif %}
                 </div>
                 {% endif %}
               </div>
