@@ -140,8 +140,9 @@ class TestCompleteTwitterAuthFlow(BaseIntegrationTest):
 class TestCompleteLinkedInAuthFlow(BaseIntegrationTest):
     """Integration test for complete LinkedIn OAuth flow"""
     
+    @patch('requests.get')
     @patch('requests.post')
-    def test_complete_linkedin_oauth_flow(self, mock_post, client):
+    def test_complete_linkedin_oauth_flow(self, mock_post, mock_get, client):
         """Test complete LinkedIn authentication flow from start to finish"""
         # Setup authenticated user
         user = self.create_authenticated_user(client)
@@ -187,17 +188,26 @@ class TestCompleteLinkedInAuthFlow(BaseIntegrationTest):
             "id_token": fake_id_token
         }
         
-        # Step 4: Simulate callback from LinkedIn
+        # Step 4: Mock LinkedIn's profile API response
+        mock_get.return_value.status_code = 200
+        mock_get.return_value.json.return_value = {
+            "sub": "linkedin_user_123",
+            "name": "Jane Smith",
+            "email": "jane.smith@example.com",
+            "email_verified": True
+        }
+        
+        # Step 5: Simulate callback from LinkedIn
         callback_response = client.get(
             f'/callback/linkedin?code=linkedin_code_abc&state={state_id}',
             follow_redirects=False
         )
         
-        # Verify successful redirect
+        # Step 6: Verify successful redirect
         assert callback_response.status_code == 302
         assert '/linked-accounts' in callback_response.location
         
-        # Step 5: Verify account saved in database
+        # Step 7: Verify account saved in database
         with app.app_context():
             platform = Platform.query.filter_by(platform_name='LinkedIn').first()
             linked_account = LinkedAccount.query.filter_by(
@@ -209,7 +219,7 @@ class TestCompleteLinkedInAuthFlow(BaseIntegrationTest):
             assert linked_account.access_token == "linkedin_access_token_67890"
             assert linked_account.account_username == "Jane Smith"
             
-            # Step 6: Verify OAuth state cleaned up
+            # Step 8: Verify OAuth state cleaned up
             remaining_state = dbs.session.get(OAuthState, state_id)
             assert remaining_state is None, "OAuth state should be deleted after use"
 
