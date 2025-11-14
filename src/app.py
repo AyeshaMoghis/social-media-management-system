@@ -1660,9 +1660,8 @@ def callback_twitter():
         
         print(f"✅ Found state for user {user_id}")
 
-        # Delete the oauth_state after retrieving it
+        # Mark oauth_state for deletion (will be committed with account update)
         dbs.session.delete(oauth_state)
-        dbs.session.commit()
 
         # Exchange code for access token
         token_url = "https://api.twitter.com/2/oauth2/token"

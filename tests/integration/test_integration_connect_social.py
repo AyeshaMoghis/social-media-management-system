@@ -273,6 +273,7 @@ class TestDuplicateAccountPrevention(BaseIntegrationTest):
         mock_get.return_value.status_code = 200
         mock_get.return_value.json.return_value = {
             "data": {
+                "id": "twitter_user_123",
                 "username": "johndoe",
                 "name": "John Doe",
                 "public_metrics": {
