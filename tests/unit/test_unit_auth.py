@@ -6,14 +6,8 @@ from src.app import app, User, dbs
 from src import auth as auth_module
 
 
-@pytest.fixture
-def client():
-    """Create test client"""
-    app.config['TESTING'] = True
-    app.config['WTF_CSRF_ENABLED'] = False
-    
-    with app.test_client() as client:
-        yield client
+# Don't override client fixture - use the one from conftest.py
+# which properly sets up database with app_context
 
 
 class TestAuthModule:

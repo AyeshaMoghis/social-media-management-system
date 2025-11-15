@@ -51,7 +51,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 # DATABASE CONFIGURATION
 # ---------------------------
 if os.environ.get('TESTING') == 'true':
-    print("🧪 TEST MODE: Using SQLite in-memory database")
+    print("TEST MODE: Using SQLite in-memory database")
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
     app.config['TESTING'] = True
 else:
@@ -63,7 +63,7 @@ else:
     # URL-encode the password to handle special characters
     encoded_pw = quote_plus(pw) if pw else ''
     app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{user}:{encoded_pw}@{host}/{db_name}'
-    print(f"🚀 Using MySQL database: {db_name}")
+    print(f"Using MySQL database: {db_name}")
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 dbs = SQLAlchemy(app)
@@ -199,7 +199,7 @@ def get_file_type(filename):
 def publish_to_linkedin(post, account):
     """Publish a post to LinkedIn"""
     try:
-        print(f"🔵 Publishing to LinkedIn for account {account.account_id}")
+        print(f" Publishing to LinkedIn for account {account.account_id}")
         
         # First, get the user's LinkedIn ID (sub)
         headers = {
@@ -216,17 +216,17 @@ def publish_to_linkedin(post, account):
         
         if profile_response.status_code != 200:
             error_msg = f"Failed to get LinkedIn user info: {profile_response.status_code}"
-            print(f"❌ {error_msg}")
+            print(f" {error_msg}")
             return False, error_msg
         
         user_info = profile_response.json()
         linkedin_id = user_info.get('sub')
         
         if not linkedin_id:
-            print("❌ LinkedIn user ID not found")
+            print(" LinkedIn user ID not found")
             return False, "LinkedIn user ID not found"
         
-        print(f"✅ Got LinkedIn ID: {linkedin_id}")
+        print(f" Got LinkedIn ID: {linkedin_id}")
         
         # Construct the post payload
         post_payload = {
@@ -250,7 +250,7 @@ def publish_to_linkedin(post, account):
         #     # Upload media and attach to post
         #     pass
         
-        print(f"📤 Sending post to LinkedIn API...")
+        print(f" Sending post to LinkedIn API...")
         # Post to LinkedIn
         post_response = requests.post(
             "https://api.linkedin.com/v2/ugcPosts",
@@ -262,35 +262,35 @@ def publish_to_linkedin(post, account):
         if post_response.status_code == 201:
             post_data = post_response.json()
             linkedin_post_id = post_data.get('id', 'unknown')
-            print(f"✅ Successfully published to LinkedIn! Post ID: {linkedin_post_id}")
+            print(f" Successfully published to LinkedIn! Post ID: {linkedin_post_id}")
             return True, linkedin_post_id
         else:
             error_msg = f"Status {post_response.status_code}: {post_response.text}"
-            print(f"❌ LinkedIn publish failed: {error_msg}")
+            print(f" LinkedIn publish failed: {error_msg}")
             return False, error_msg
             
     except requests.exceptions.Timeout:
         error_msg = "LinkedIn API request timed out"
-        print(f"❌ {error_msg}")
+        print(f" {error_msg}")
         return False, error_msg
     except requests.exceptions.RequestException as e:
         error_msg = f"LinkedIn API request failed: {str(e)}"
-        print(f"❌ {error_msg}")
+        print(f" {error_msg}")
         return False, error_msg
     except Exception as e:
         error_msg = f"Unexpected error: {str(e)}"
-        print(f"❌ LinkedIn publish error: {error_msg}")
+        print(f" LinkedIn publish error: {error_msg}")
         return False, error_msg
 
 
 def publish_to_twitter(post, account):
     """Publish a post to Twitter/X using API v2 with media support"""
     try:
-        print(f"🐦 Publishing to Twitter for account {account.account_id}")
+        print(f" Publishing to Twitter for account {account.account_id}")
         
         if not account.access_token:
             error_msg = "No access token for Twitter account"
-            print(f"❌ {error_msg}")
+            print(f" {error_msg}")
             return False, error_msg
         
         # Note: Twitter media upload with OAuth 2.0 is limited
@@ -298,7 +298,7 @@ def publish_to_twitter(post, account):
         # For now, we'll post text-only
         
         if post.media_url:
-            print(f"⚠️  Note: Twitter image upload with OAuth 2.0 is not supported in free tier")
+            print(f"  Note: Twitter image upload with OAuth 2.0 is not supported in free tier")
             print(f"    Posting text only. To enable images, upgrade to Twitter API Pro.")
         
         # Twitter API v2 endpoint for creating tweet
@@ -315,37 +315,37 @@ def publish_to_twitter(post, account):
         }
         
         # Make the API request
-        print(f"📤 Sending tweet to Twitter API...")
+        print(f" Sending tweet to Twitter API...")
         response = requests.post(url, headers=headers, json=tweet_data, timeout=10)
         
         if response.status_code == 201:
             # Success
             tweet_response = response.json()
             tweet_id = tweet_response.get('data', {}).get('id', 'unknown')
-            print(f"✅ Successfully published to Twitter! Tweet ID: {tweet_id}")
+            print(f" Successfully published to Twitter! Tweet ID: {tweet_id}")
             if post.media_url:
-                print(f"ℹ️  Image was not uploaded due to Twitter API limitations")
+                print(f"  Image was not uploaded due to Twitter API limitations")
             return True, tweet_id
         else:
             # Error
             error_data = response.json()
             error_msg = error_data.get('detail', error_data.get('title', 'Unknown error'))
-            print(f"❌ Twitter publish failed: {error_msg}")
+            print(f" Twitter publish failed: {error_msg}")
             print(f"   Status: {response.status_code}")
             print(f"   Response: {response.text}")
             return False, error_msg
             
     except requests.exceptions.Timeout:
         error_msg = "Twitter API request timed out"
-        print(f"❌ {error_msg}")
+        print(f" {error_msg}")
         return False, error_msg
     except requests.exceptions.RequestException as e:
         error_msg = f"Twitter API request failed: {str(e)}"
-        print(f"❌ {error_msg}")
+        print(f" {error_msg}")
         return False, error_msg
     except Exception as e:
         error_msg = f"Unexpected error: {str(e)}"
-        print(f"❌ Twitter publish error: {error_msg}")
+        print(f" Twitter publish error: {error_msg}")
         import traceback
         print(traceback.format_exc())
         return False, error_msg
@@ -363,7 +363,7 @@ def publish_to_platform(post, account):
             return False, "Platform not found"
         
         platform_name = platform.platform_name.lower()
-        print(f"🚀 Publishing to {platform_name}...")
+        print(f" Publishing to {platform_name}...")
         
         if platform_name == 'linkedin':
             return publish_to_linkedin(post, account)
@@ -371,12 +371,12 @@ def publish_to_platform(post, account):
             return publish_to_twitter(post, account)
         else:
             error_msg = f"Platform {platform.platform_name} not supported for publishing yet"
-            print(f"⚠️ {error_msg}")
+            print(f" {error_msg}")
             return False, error_msg
         
     except Exception as e:
         error_msg = f"Error publishing to platform: {str(e)}"
-        print(f"❌ {error_msg}")
+        print(f" {error_msg}")
         return False, error_msg
 
 
@@ -386,7 +386,7 @@ def check_and_publish_scheduled_posts():
         # Use local time instead of UTC since scheduled times are in local timezone
         current_time = datetime.now()
         print(f"\n{'='*60}")
-        print(f"🕐 CHECKING SCHEDULED POSTS")
+        print(f" CHECKING SCHEDULED POSTS")
         print(f"{'='*60}")
         print(f"Current local time: {current_time}")
         
@@ -396,7 +396,7 @@ def check_and_publish_scheduled_posts():
             ScheduledPost.scheduled_time <= current_time
         ).all()
         
-        print(f"📋 Found {len(scheduled_posts)} scheduled posts ready to publish")
+        print(f" Found {len(scheduled_posts)} scheduled posts ready to publish")
         
         if len(scheduled_posts) == 0:
             print(f"{'='*60}\n")
@@ -410,12 +410,12 @@ def check_and_publish_scheduled_posts():
         
         for sched_post in scheduled_posts:
             try:
-                print(f"\n📤 Processing scheduled post {sched_post.post_id} for platform {sched_post.platform_id}...")
+                print(f"\n Processing scheduled post {sched_post.post_id} for platform {sched_post.platform_id}...")
                 
                 # Get the post
                 post = Post.query.get(sched_post.post_id)
                 if not post:
-                    print(f"❌ Post {sched_post.post_id} not found")
+                    print(f" Post {sched_post.post_id} not found")
                     sched_post.status = 'failed'
                     failed_count += 1
                     continue
@@ -427,14 +427,14 @@ def check_and_publish_scheduled_posts():
                 ).first()
                 
                 if not account:
-                    print(f"❌ No linked account found for platform {sched_post.platform_id}")
+                    print(f" No linked account found for platform {sched_post.platform_id}")
                     sched_post.status = 'failed'
                     failed_count += 1
                     continue
                 
                 platform = dbs.session.get(Platform, sched_post.platform_id)
                 platform_name = platform.platform_name if platform else "Unknown"
-                print(f"📱 Platform: {platform_name}")
+                print(f" Platform: {platform_name}")
                 
                 # Publish to the platform
                 success, result = publish_to_platform(post, account)
@@ -463,15 +463,15 @@ def check_and_publish_scheduled_posts():
                         post_platform.published_at = current_time
                     
                     published_count += 1
-                    print(f"✅ Post {sched_post.post_id} published successfully!")
+                    print(f" Post {sched_post.post_id} published successfully!")
                 else:
                     # Mark as failed
                     sched_post.status = 'failed'
                     failed_count += 1
-                    print(f"❌ Failed to publish post {sched_post.post_id}: {result}")
+                    print(f" Failed to publish post {sched_post.post_id}: {result}")
                     
             except Exception as e:
-                print(f"❌ Error processing post {sched_post.post_id}: {e}")
+                print(f" Error processing post {sched_post.post_id}: {e}")
                 sched_post.status = 'failed'
                 failed_count += 1
         
@@ -479,14 +479,14 @@ def check_and_publish_scheduled_posts():
         if published_count > 0 or failed_count > 0:
             dbs.session.commit()
             print(f"\n{'='*60}")
-            print(f"✅ Successfully published: {published_count}")
-            print(f"❌ Failed: {failed_count}")
+            print(f" Successfully published: {published_count}")
+            print(f" Failed: {failed_count}")
             print(f"{'='*60}\n")
         
         return published_count
         
     except Exception as e:
-        print(f"\n❌ Error checking scheduled posts: {e}")
+        print(f"\n Error checking scheduled posts: {e}")
         import traceback
         print(traceback.format_exc())
         dbs.session.rollback()
@@ -538,7 +538,7 @@ def home():
 def user_dashboard():
     """User dashboard - redirects to linked accounts"""
     if 'user_id' not in session or session.get('role') != 'user':
-        flash("Access denied — Users only.", "danger")
+        flash("Access denied  Users only.", "danger")
         return redirect(url_for('auth.login'))
     return redirect(url_for('linked_accounts'))
 
@@ -547,7 +547,7 @@ def user_dashboard():
 def manager_dashboard():
     """Manager Dashboard Page"""
     if 'user_id' not in session or session.get('role') != 'manager':
-        flash("Access denied — Managers only.", "danger")
+        flash("Access denied  Managers only.", "danger")
         return redirect(url_for('auth.login'))
     
     # Check and publish scheduled posts that are ready
@@ -619,7 +619,7 @@ def manager_dashboard():
 def team_collaboration():
     """Team Collaboration Dashboard for Managers"""
     if 'user_id' not in session or session.get('role') != 'manager':
-        flash("Access denied — Managers only.", "danger")
+        flash("Access denied  Managers only.", "danger")
         return redirect(url_for('auth.login'))
 
     # Check and publish scheduled posts that are ready
@@ -641,11 +641,11 @@ def team_collaboration():
         post.status = 'rejected'
         sched_post.status = 'failed'
         expired_count += 1
-        print(f"⏰ Auto-rejected post {post.post_id} - scheduled time {sched_post.scheduled_time} has passed")
+        print(f" Auto-rejected post {post.post_id} - scheduled time {sched_post.scheduled_time} has passed")
     
     if expired_count > 0:
         dbs.session.commit()
-        print(f"✅ Auto-rejected {expired_count} expired pending posts")
+        print(f" Auto-rejected {expired_count} expired pending posts")
 
     # Get all team members
     team_members = User.query.all()
@@ -841,18 +841,18 @@ def update_post_status():
                 # Update ALL scheduled post entries to 'scheduled'
                 for sp in scheduled_posts:
                     sp.status = 'scheduled'
-                print(f"✅ Approved post {post_id} - Set to scheduled for {scheduled_posts[0].scheduled_time} ({len(scheduled_posts)} platforms)")
+                print(f" Approved post {post_id} - Set to scheduled for {scheduled_posts[0].scheduled_time} ({len(scheduled_posts)} platforms)")
             else:
                 # No schedule, mark as approved (can be published immediately)
                 post.status = 'approved'
-                print(f"✅ Approved post {post_id} - Set to approved")
+                print(f" Approved post {post_id} - Set to approved")
         elif action == 'rejected':
             post.status = 'rejected'
             # Update ALL scheduled post entries to failed
             scheduled_posts = ScheduledPost.query.filter_by(post_id=post_id).all()
             for sp in scheduled_posts:
                 sp.status = 'failed'
-            print(f"❌ Rejected post {post_id}")
+            print(f" Rejected post {post_id}")
         
         dbs.session.commit()
 
@@ -974,13 +974,13 @@ def get_posts():
 @app.route('/api/posts', methods=['POST'])
 def create_post():
     """Create a new post"""
-    print(f"\n🔍 POST /api/posts called")
+    print(f"\n POST /api/posts called")
     print(f"Session data: {dict(session)}")
     print(f"Has user_id: {'user_id' in session}")
     print(f"Cookies: {request.cookies}")
     
     if 'user_id' not in session:
-        print(f"❌ NO USER_ID IN SESSION - Returning 401")
+        print(f" NO USER_ID IN SESSION - Returning 401")
         return jsonify({'error': 'Unauthorized'}), 401
 
     try:
@@ -991,7 +991,7 @@ def create_post():
         status = request.form.get('status', 'draft')
 
         print(f"\n{'='*60}")
-        print(f"📝 CREATE POST REQUEST")
+        print(f" CREATE POST REQUEST")
         print(f"{'='*60}")
         print(f"User ID: {user_id}")
         print(f"Status: '{status}'")
@@ -1005,13 +1005,13 @@ def create_post():
         
         # Validation
         if not text and not media_file:
-            print("❌ Validation failed: No text or media")
+            print(" Validation failed: No text or media")
             return jsonify({'error': 'Post must contain text or media'}), 400
         if not account_ids:
-            print("❌ Validation failed: No accounts selected")
+            print(" Validation failed: No accounts selected")
             return jsonify({'error': 'At least one account must be selected'}), 400
         
-        print(f"✅ Validation passed")
+        print(f" Validation passed")
 
         # Handle file upload
         media_url = None
@@ -1054,10 +1054,10 @@ def create_post():
             else:
                 final_status = 'draft'
 
-        print(f"✅ User role: {user_role}, Requested status: '{status}', Final status: '{final_status}'")
+        print(f" User role: {user_role}, Requested status: '{status}', Final status: '{final_status}'")
 
         # Create post
-        print(f"📝 Creating Post object...")
+        print(f" Creating Post object...")
         post = Post(
             user_id=user_id,
             content_text=text,
@@ -1066,7 +1066,7 @@ def create_post():
         )
         dbs.session.add(post)
         dbs.session.flush()
-        print(f"✅ Post created with ID: {post.post_id}")
+        print(f" Post created with ID: {post.post_id}")
 
         # Link platforms
         for account_id in account_ids:
@@ -1076,14 +1076,14 @@ def create_post():
                 account = dbs.session.get(LinkedAccount, account_id_int)
                 
                 if not account:
-                    print(f"⚠️ Account {account_id_int} not found")
+                    print(f" Account {account_id_int} not found")
                     continue
                     
                 if account.user_id != user_id:
-                    print(f"⚠️ Account {account_id_int} does not belong to user {user_id}")
+                    print(f" Account {account_id_int} does not belong to user {user_id}")
                     continue
                 
-                print(f"✅ Linking post to platform {account.platform_id}")
+                print(f" Linking post to platform {account.platform_id}")
                 pp = PostPlatform(
                     post_id=post.post_id,
                     platform_id=account.platform_id
@@ -1093,7 +1093,7 @@ def create_post():
                 # Create schedule entry if user requested scheduling
                 # Store the scheduled time even if status is 'pending' (waiting for approval)
                 if scheduled_dt:
-                    print(f"📅 Creating scheduled post entry for {scheduled_dt} (current status: {final_status})")
+                    print(f" Creating scheduled post entry for {scheduled_dt} (current status: {final_status})")
                     sched = ScheduledPost(
                         post_id=post.post_id,
                         platform_id=account.platform_id,
@@ -1102,16 +1102,16 @@ def create_post():
                     )
                     dbs.session.add(sched)
             except (ValueError, TypeError) as e:
-                print(f"❌ Invalid account_id: {account_id}, error: {e}")
+                print(f" Invalid account_id: {account_id}, error: {e}")
                 continue
 
-        print(f"💾 Committing to database...")
+        print(f" Committing to database...")
         dbs.session.commit()
-        print(f"✅ Post committed successfully!")
+        print(f" Post committed successfully!")
 
         # If the status is 'published', immediately publish to platforms
         if final_status == 'published':
-            print(f"\n🚀 Attempting immediate publish to platforms...")
+            print(f"\n Attempting immediate publish to platforms...")
             published_count = 0
             failed_count = 0
             
@@ -1133,17 +1133,17 @@ def create_post():
                                 pp.published = True
                                 pp.published_at = datetime.now()
                             published_count += 1
-                            print(f"✅ Published to platform {account.platform_id}")
+                            print(f" Published to platform {account.platform_id}")
                         else:
                             failed_count += 1
-                            print(f"❌ Failed to publish to platform {account.platform_id}: {result}")
+                            print(f" Failed to publish to platform {account.platform_id}: {result}")
                 except Exception as e:
-                    print(f"❌ Error publishing to account {account_id}: {e}")
+                    print(f" Error publishing to account {account_id}: {e}")
                     failed_count += 1
             
             if published_count > 0 or failed_count > 0:
                 dbs.session.commit()
-                print(f"📊 Immediate publish results: {published_count} successful, {failed_count} failed")
+                print(f" Immediate publish results: {published_count} successful, {failed_count} failed")
 
         return jsonify({
             'message': 'Post created successfully',
@@ -1153,7 +1153,7 @@ def create_post():
     except Exception as e:
         dbs.session.rollback()
         print(f"\n{'='*60}")
-        print(f"❌ ERROR CREATING POST")
+        print(f" ERROR CREATING POST")
         print(f"{'='*60}")
         print(f"Error type: {type(e).__name__}")
         print(f"Error message: {str(e)}")
@@ -1184,7 +1184,7 @@ def update_post(post_id):
         status = request.form.get('status', post.status)
         scheduled_time = request.form.get('scheduled_time')
 
-        print(f"📝 Updating post {post_id} - Status: {status}, Scheduled: {scheduled_time}")
+        print(f" Updating post {post_id} - Status: {status}, Scheduled: {scheduled_time}")
 
         # Handle status changes
         if status == 'published':
@@ -1225,12 +1225,12 @@ def update_post(post_id):
         post.updated_at = datetime.now()
         dbs.session.commit()
 
-        print(f"✅ Updated post {post_id} to status: {post.status}")
+        print(f" Updated post {post_id} to status: {post.status}")
         return jsonify({'message': 'Post updated successfully'}), 200
 
     except Exception as e:
         dbs.session.rollback()
-        print(f"❌ Error updating post: {e}")
+        print(f" Error updating post: {e}")
         return jsonify({'error': str(e)}), 500
 
 
@@ -1261,12 +1261,12 @@ def delete_post(post_id):
         dbs.session.delete(post)
         dbs.session.commit()
 
-        print(f"✅ Deleted post {post_id}")
+        print(f" Deleted post {post_id}")
         return jsonify({'message': 'Post deleted successfully'}), 200
 
     except Exception as e:
         dbs.session.rollback()
-        print(f"❌ Error deleting post: {e}")
+        print(f" Error deleting post: {e}")
         return jsonify({'error': str(e)}), 500
 
 
@@ -1374,13 +1374,13 @@ def connect_linkedin_test():
         dbs.session.add(test_account)
         dbs.session.commit()
 
-        print(f"✅ Created test LinkedIn account for user {user_id}")
-        flash("✅ Test LinkedIn account created successfully! Note: This won't actually post to LinkedIn.", "success")
+        print(f" Created test LinkedIn account for user {user_id}")
+        flash(" Test LinkedIn account created successfully! Note: This won't actually post to LinkedIn.", "success")
         return redirect(url_for('linked_accounts'))
 
     except Exception as e:
         dbs.session.rollback()
-        print(f"❌ Error creating test account: {e}")
+        print(f" Error creating test account: {e}")
         flash("Failed to create test account", "danger")
         return redirect(url_for('linked_accounts'))
 
@@ -1404,7 +1404,7 @@ def connect_linkedin():
     session.permanent = True
     session.modified = True
 
-    print(f"✅ User {active_user.user_id} starting LinkedIn connection")
+    print(f" User {active_user.user_id} starting LinkedIn connection")
 
     linkedin = Platform.query.filter_by(platform_name='LinkedIn').first()
     if not linkedin:
@@ -1545,7 +1545,7 @@ def linkedin_callback():
             session['email'] = user.email
             session.permanent = True
             session.modified = True
-            print(f"✅ Session restored for user {user.user_id}")
+            print(f" Session restored for user {user.user_id}")
 
         # TEST EXPECTATION 5:
         # Must redirect on success
@@ -1579,7 +1579,7 @@ def connect_twitter():
     session.permanent = True
     session.modified = True
 
-    print(f"✅ User {active_user.user_id} starting Twitter connection")
+    print(f" User {active_user.user_id} starting Twitter connection")
 
     twitter_platform = Platform.query.filter_by(platform_name='Twitter').first()
     if not twitter_platform:
@@ -1621,14 +1621,14 @@ def connect_twitter():
     }
 
     auth_url = f"https://twitter.com/i/oauth2/authorize?{urlencode(auth_params)}"
-    print(f"➡️ Redirecting to Twitter with state: {state}")
+    print(f" Redirecting to Twitter with state: {state}")
     return redirect(auth_url)
 
 
 @app.route('/callback/twitter')
 def callback_twitter():
     """Handle Twitter OAuth callback"""
-    print("🟢 Twitter callback triggered")
+    print(" Twitter callback triggered")
     
     try:
         state = request.args.get('state')
@@ -1640,13 +1640,13 @@ def callback_twitter():
         # Verify state from DATABASE (not session)
         oauth_state = OAuthState.query.filter_by(state_id=state).first()
         if not oauth_state:
-            print(f"❌ Invalid OAuth state: {state}")
+            print(f" Invalid OAuth state: {state}")
             return jsonify({"error": "Invalid OAuth state"}), 400
 
         user_id = oauth_state.user_id
         code_verifier = oauth_state.code_verifier
         
-        print(f"✅ Found state for user {user_id}")
+        print(f" Found state for user {user_id}")
 
         # Mark oauth_state for deletion (will be committed with account update)
         dbs.session.delete(oauth_state)
@@ -1670,10 +1670,10 @@ def callback_twitter():
 
         token_resp = requests.post(token_url, data=payload, headers=headers, timeout=10)
         token_data = token_resp.json()
-        print("✅ Twitter token response received")
+        print(" Twitter token response received")
 
         if "access_token" not in token_data:
-            print(f"❌ No access token: {token_data}")
+            print(f" No access token: {token_data}")
             return jsonify({"error": "Failed to get Twitter access token"}), 400
 
         access_token = token_data["access_token"]
@@ -1693,7 +1693,7 @@ def callback_twitter():
         name = profile_data.get("data", {}).get("name", "Twitter User")
         metrics = profile_data.get("data", {}).get("public_metrics", {})
         
-        print(f"✅ Fetched: {name} (@{username})")
+        print(f" Fetched: {name} (@{username})")
 
         if not external_id:
             return jsonify({"error": "Failed to fetch Twitter profile"}), 400
@@ -1751,15 +1751,15 @@ def callback_twitter():
             session['email'] = user.email
             session.permanent = True
             session.modified = True
-            print(f"✅ Session restored for user {user.user_id}")
+            print(f" Session restored for user {user.user_id}")
         
-        print(f"✅ Twitter account linked successfully: {name} (@{username})")
+        print(f" Twitter account linked successfully: {name} (@{username})")
         flash(f"Successfully connected Twitter account: {name} (@{username})", "success")
 
         return redirect(url_for("linked_accounts"))
 
     except Exception as e:
-        print(f"❌ Twitter callback error: {e}")
+        print(f" Twitter callback error: {e}")
         dbs.session.rollback()
         return jsonify({"error": str(e)}), 500
 
@@ -1801,7 +1801,7 @@ def refresh_account(account_id):
                 acc.account_username = name or "LinkedIn User"
                 acc.last_synced = datetime.utcnow()
                 dbs.session.commit()
-                print(f"✅ Refreshed LinkedIn: {acc.account_username}")
+                print(f" Refreshed LinkedIn: {acc.account_username}")
 
         elif platform.platform_name.lower() == "twitter":
             headers = {"Authorization": f"Bearer {acc.access_token}"}
@@ -1823,12 +1823,12 @@ def refresh_account(account_id):
                 acc.post_count = metrics.get("tweet_count", 0)
                 acc.last_synced = datetime.utcnow()
                 dbs.session.commit()
-                print(f"✅ Refreshed Twitter: {acc.account_username}")
+                print(f" Refreshed Twitter: {acc.account_username}")
             else:
-                print(f"⚠️ Twitter refresh failed: {user_response.text}")
+                print(f" Twitter refresh failed: {user_response.text}")
 
     except requests.RequestException as error:
-        print(f"❌ Refresh error: {error}")
+        print(f" Refresh error: {error}")
 
     return redirect(url_for("linked_accounts"))
 
@@ -1849,7 +1849,7 @@ def disconnect_account(account_id):
     if acc:
         dbs.session.delete(acc)
         dbs.session.commit()
-        print(f"✅ Disconnected account {account_id}")
+        print(f" Disconnected account {account_id}")
 
     return redirect(url_for('linked_accounts'))
 
@@ -1896,7 +1896,7 @@ def scheduled_post_checker():
         try:
             check_and_publish_scheduled_posts()
         except Exception as e:
-            print(f"❌ Scheduler error: {e}")
+            print(f" Scheduler error: {e}")
 
 # Initialize the background scheduler
 scheduler = BackgroundScheduler()
@@ -1914,7 +1914,7 @@ scheduler.add_job(
 # Shut down the scheduler when exiting the app
 atexit.register(lambda: scheduler.shutdown())
 
-print("✅ Background scheduler started - checking every 30 seconds")
+print(" Background scheduler started - checking every 30 seconds")
 
 
 # ---------------------------
