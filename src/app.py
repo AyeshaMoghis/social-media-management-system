@@ -443,6 +443,103 @@ def publish_to_platform(post, account):
         print(f" {error_msg}")
         return False, error_msg
 
+def delete_from_twitter(tweet_id, account):
+    """Delete a tweet from Twitter"""
+    try:
+        print(f"🗑️ Deleting tweet {tweet_id} from Twitter...")
+        
+        if not account.access_token:
+            error_msg = "No access token for Twitter account"
+            print(f"❌ {error_msg}")
+            return False, error_msg
+        
+        # Twitter API v2 endpoint for deleting tweet
+        url = f"https://api.twitter.com/2/tweets/{tweet_id}"
+        
+        headers = {
+            "Authorization": f"Bearer {account.access_token}",
+        }
+        
+        # Make the DELETE request
+        response = requests.delete(url, headers=headers, timeout=10)
+        
+        if response.status_code == 200:
+            print(f"✅ Successfully deleted tweet {tweet_id} from Twitter!")
+            return True, "Tweet deleted successfully"
+        else:
+            error_data = response.json()
+            error_msg = error_data.get('detail', error_data.get('title', 'Unknown error'))
+            print(f"❌ Twitter delete failed: {error_msg}")
+            print(f"   Status: {response.status_code}")
+            print(f"   Response: {response.text}")
+            return False, error_msg
+            
+    except requests.exceptions.Timeout:
+        error_msg = "Twitter API request timeout"
+        print(f"❌ {error_msg}")
+        return False, error_msg
+    except requests.exceptions.RequestException as e:
+        error_msg = f"Twitter API request failed: {str(e)}"
+        print(f"❌ {error_msg}")
+        return False, error_msg
+    except Exception as e:
+        error_msg = f"Unexpected error: {str(e)}"
+        print(f"❌ Twitter delete error: {error_msg}")
+        import traceback
+        print(traceback.format_exc())
+        return False, error_msg
+
+
+def delete_from_linkedin(post_id, account):
+    """Delete a post from LinkedIn"""
+    try:
+        print(f"🗑️ Deleting LinkedIn post {post_id}...")
+        
+        headers = {
+            "Authorization": f"Bearer {getattr(account, 'access_token', None)}",
+        }
+        
+        # LinkedIn uses ugcPosts endpoint for deletion
+        url = f"https://api.linkedin.com/v2/ugcPosts/{post_id}"
+        
+        response = requests.delete(url, headers=headers, timeout=10)
+        
+        if response.status_code == 204:  # LinkedIn returns 204 for successful deletion
+            print(f"✅ Successfully deleted LinkedIn post {post_id}!")
+            return True, "Post deleted successfully"
+        else:
+            error_msg = f"Status {response.status_code}: {response.text}"
+            print(f"❌ LinkedIn delete failed: {error_msg}")
+            return False, error_msg
+            
+    except Exception as e:
+        error_msg = f"Unexpected error: {str(e)}"
+        print(f"❌ LinkedIn delete error: {error_msg}")
+        return False, error_msg
+
+
+def delete_from_platform(platform_post_id, platform_name, account):
+    """
+    Delete post from a specific platform
+    Returns: (success: bool, message: str)
+    """
+    try:
+        platform_name = platform_name.lower()
+        print(f"🗑️ Deleting from {platform_name}...")
+        
+        if platform_name in ('twitter', 'x'):
+            return delete_from_twitter(platform_post_id, account)
+        elif platform_name == 'linkedin':
+            return delete_from_linkedin(platform_post_id, account)
+        else:
+            error_msg = f"Platform {platform_name} deletion not supported yet"
+            print(f"❌ {error_msg}")
+            return False, error_msg
+        
+    except Exception as e:
+        error_msg = f"Error deleting from platform: {str(e)}"
+        print(f"❌ {error_msg}")
+        return False, error_msg
 
 def check_and_publish_scheduled_posts():
     """Check for scheduled posts that are past their scheduled time and publish them to platforms"""
@@ -450,7 +547,7 @@ def check_and_publish_scheduled_posts():
         # Use local time instead of UTC since scheduled times are in local timezone
         current_time = datetime.now()
         print(f"\n{'='*60}")
-        print(f" CHECKING SCHEDULED POSTS")
+        print(f"📋 CHECKING SCHEDULED POSTS")
         print(f"{'='*60}")
         print(f"Current local time: {current_time}")
         
@@ -460,7 +557,7 @@ def check_and_publish_scheduled_posts():
             ScheduledPost.scheduled_time <= current_time
         ).all()
         
-        print(f" Found {len(scheduled_posts)} scheduled posts ready to publish")
+        print(f"📊 Found {len(scheduled_posts)} scheduled posts ready to publish")
         
         if len(scheduled_posts) == 0:
             print(f"{'='*60}\n")
@@ -474,12 +571,12 @@ def check_and_publish_scheduled_posts():
         
         for sched_post in scheduled_posts:
             try:
-                print(f"\n Processing scheduled post {sched_post.post_id} for platform {sched_post.platform_id}...")
+                print(f"\n🔄 Processing scheduled post {sched_post.post_id} for platform {sched_post.platform_id}...")
                 
                 # Get the post
                 post = Post.query.get(sched_post.post_id)
                 if not post:
-                    print(f" Post {sched_post.post_id} not found")
+                    print(f"❌ Post {sched_post.post_id} not found")
                     sched_post.status = 'failed'
                     failed_count += 1
                     continue
@@ -494,7 +591,7 @@ def check_and_publish_scheduled_posts():
                     # Try treating Platform as a linked account directly (for tests)
                     account = dbs.session.get(Platform, sched_post.platform_id)
                     if not account or not hasattr(account, 'access_token') or not account.access_token:
-                        print(f" No linked account found for platform {sched_post.platform_id}")
+                        print(f"❌ No linked account found for platform {sched_post.platform_id}")
                         sched_post.status = 'failed'
                         sched_post.error_message = "No linked account found"
                         failed_count += 1
@@ -502,53 +599,55 @@ def check_and_publish_scheduled_posts():
                 
                 platform = dbs.session.get(Platform, sched_post.platform_id)
                 platform_name = platform.platform_name if platform else "Unknown"
-                print(f" Platform: {platform_name}")
+                print(f"📱 Platform: {platform_name}")
                 
-                # Publish to the platform (handles both signatures)
+                # Publish to the platform
                 result = publish_to_platform(post, account)
-                # publish_to_platform returns (success, result_str) always
-                # but if called from mocked tests it may return just a string
+                
+                # Handle result (tuple or string)
                 if isinstance(result, tuple):
                     success, result_msg = result
                 else:
-                    # Shouldn't happen in normal usage, but be safe
                     success = bool(result)
-                    result_msg = result
+                    result_msg = str(result) if result else "Unknown error"
                 
                 if success:
                     # Update the scheduled post status
                     sched_post.status = 'published'
                     sched_post.published_at = current_time
                     
-                    # Store the platform post ID if provided
-                    if result_msg and result_msg != 'unknown':
-                        # You can add a column to store platform_post_id if needed
-                        pass
-                    
                     # Update the main post status
                     post.status = 'published'
                     post.updated_at = current_time
                     
-                    # Update the post platform status
+                    # ✅ CRITICAL: Update PostPlatform with the platform_post_id
                     post_platform = PostPlatform.query.filter_by(
                         post_id=sched_post.post_id,
                         platform_id=sched_post.platform_id
                     ).first()
+                    
                     if post_platform:
                         post_platform.published = True
                         post_platform.published_at = current_time
+                        # Store the platform post ID (tweet ID, LinkedIn post ID, etc.)
+                        post_platform.platform_post_id = result_msg
+                        print(f"   ✅ Stored platform_post_id: {result_msg}")
+                    else:
+                        print(f"   ⚠️ Warning: PostPlatform entry not found")
                     
                     published_count += 1
-                    print(f" Post {sched_post.post_id} published successfully!")
+                    print(f"✅ Post {sched_post.post_id} published successfully to {platform_name}!")
                 else:
                     # Mark as failed
                     sched_post.status = 'failed'
                     sched_post.error_message = str(result_msg) if result_msg else "Publishing failed"
                     failed_count += 1
-                    print(f" Failed to publish post {sched_post.post_id}: {result_msg}")
+                    print(f"❌ Failed to publish post {sched_post.post_id}: {result_msg}")
                     
             except Exception as e:
-                print(f" Error processing post {sched_post.post_id}: {e}")
+                print(f"❌ Error processing post {sched_post.post_id}: {e}")
+                import traceback
+                print(traceback.format_exc())
                 sched_post.status = 'failed'
                 sched_post.error_message = str(e)
                 failed_count += 1
@@ -557,19 +656,18 @@ def check_and_publish_scheduled_posts():
         if published_count > 0 or failed_count > 0:
             dbs.session.commit()
             print(f"\n{'='*60}")
-            print(f" Successfully published: {published_count}")
-            print(f" Failed: {failed_count}")
+            print(f"✅ Successfully published: {published_count}")
+            print(f"❌ Failed: {failed_count}")
             print(f"{'='*60}\n")
         
         return published_count
         
     except Exception as e:
-        print(f"\n Error checking scheduled posts: {e}")
+        print(f"\n❌ Error checking scheduled posts: {e}")
         import traceback
         print(traceback.format_exc())
         dbs.session.rollback()
         return 0
-
 
 # ---------------------------
 # IMPORT AUTH BLUEPRINT
@@ -929,6 +1027,8 @@ def search_members():
         'role': user.role
     } for user in members]
 
+# Add this route to your app.py file, BEFORE the /api/posts/<int:post_id> route
+# Place it around line 1400 (near the team_collaboration route)
 
 @app.route('/update_post_status', methods=['POST'])
 def update_post_status():
@@ -977,6 +1077,143 @@ def update_post_status():
         print(f"Error updating post status: {e}")
         return {'success': False, 'message': str(e)}, 500
 
+
+@app.route('/api/posts/<int:post_id>', methods=['PUT'])
+def edit_post(post_id):
+    """Update an existing post and sync changes to platforms"""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        user_id = session['user_id']
+        post = Post.query.filter_by(post_id=post_id, user_id=user_id).first()
+
+        if not post:
+            return jsonify({'error': 'Post not found'}), 404
+
+        # Get data from either JSON or form
+        if request.is_json:
+            data = request.get_json()
+            new_text = data.get('text')
+            status = data.get('status', post.status)
+            scheduled_time = data.get('scheduled_time')
+        else:
+            new_text = request.form.get('text')
+            status = request.form.get('status', post.status)
+            scheduled_time = request.form.get('scheduled_time')
+
+        old_text = post.content_text
+        text_changed = new_text is not None and new_text != old_text
+
+        print(f"\n{'='*60}")
+        print(f"✏️ UPDATING POST {post_id}")
+        print(f"{'='*60}")
+        print(f"Status: {status}, Text changed: {text_changed}")
+
+        # If text changed and post is already published, we need to delete and republish
+        # Note: Twitter doesn't support editing tweets, so we delete and create new
+        if text_changed and post.status == 'published':
+            print(f"⚠️ Post text changed for published post - will delete and republish")
+            
+            post_platforms = PostPlatform.query.filter_by(post_id=post_id).all()
+            
+            for pp in post_platforms:
+                if pp.published and pp.platform_post_id:
+                    platform = dbs.session.get(Platform, pp.platform_id)
+                    account = LinkedAccount.query.filter_by(
+                        user_id=user_id,
+                        platform_id=pp.platform_id
+                    ).first()
+                    
+                    if platform and account:
+                        # Delete old post
+                        print(f"🗑️ Deleting old post from {platform.platform_name}...")
+                        delete_success, delete_msg = delete_from_platform(
+                            pp.platform_post_id,
+                            platform.platform_name,
+                            account
+                        )
+                        
+                        if delete_success:
+                            print(f"✅ Deleted old post from {platform.platform_name}")
+                            
+                            # Update text
+                            post.content_text = new_text
+                            
+                            # Republish with new text
+                            print(f"📤 Republishing to {platform.platform_name}...")
+                            success, result = publish_to_platform(post, account)
+                            
+                            if success:
+                                pp.platform_post_id = result
+                                pp.published_at = datetime.now()
+                                print(f"✅ Republished to {platform.platform_name}")
+                            else:
+                                pp.published = False
+                                pp.error_message = f"Republish failed: {result}"
+                                print(f"❌ Failed to republish: {result}")
+                        else:
+                            print(f"❌ Failed to delete old post: {delete_msg}")
+
+        elif text_changed:
+            post.content_text = new_text
+
+        # Handle status changes (rest of the original logic)
+        if status == 'published':
+            post.status = 'published'
+            ScheduledPost.query.filter_by(post_id=post.post_id).delete()
+            PostPlatform.query.filter_by(post_id=post.post_id).update({
+                'published': True,
+                'published_at': datetime.now()
+            })
+
+        elif status == 'scheduled' and scheduled_time:
+            try:
+                scheduled_dt = datetime.strptime(scheduled_time, '%Y-%m-%dT%H:%M')
+                post.status = 'scheduled'
+
+                scheduled_post = ScheduledPost.query.filter_by(post_id=post.post_id).first()
+                if scheduled_post:
+                    scheduled_post.scheduled_time = scheduled_dt
+                    scheduled_post.status = 'scheduled'
+                else:
+                    post_platform = PostPlatform.query.filter_by(post_id=post.post_id).first()
+                    if post_platform:
+                        new_sched = ScheduledPost(
+                            post_id=post.post_id,
+                            platform_id=post_platform.platform_id,
+                            scheduled_time=scheduled_dt,
+                            status='scheduled'
+                        )
+                        dbs.session.add(new_sched)
+
+            except ValueError:
+                return jsonify({'error': 'Invalid scheduled time format'}), 400
+
+        elif status == 'draft':
+            post.status = 'draft'
+            ScheduledPost.query.filter_by(post_id=post.post_id).delete()
+
+        elif status == 'approved':
+            post.status = 'approved'
+
+        elif status == 'pending':
+            post.status = 'pending'
+
+        post.updated_at = datetime.now()
+        dbs.session.commit()
+
+        print(f"✅ Updated post {post_id} to status: {post.status}")
+        print(f"{'='*60}\n")
+        
+        return jsonify({'message': 'Post updated successfully'}), 200
+
+    except Exception as e:
+        dbs.session.rollback()
+        print(f"❌ Error updating post: {e}")
+        import traceback
+        print(traceback.format_exc())
+        return jsonify({'error': str(e)}), 500
 
 # ---------------------------
 # POST SCHEDULER ROUTES
@@ -1279,92 +1516,11 @@ def create_post():
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/api/posts/<int:post_id>', methods=['PUT'])
-def update_post(post_id):
-    """Update an existing post"""
-    if 'user_id' not in session:
-        return jsonify({'error': 'Unauthorized'}), 401
-
-    try:
-        user_id = session['user_id']
-        post = Post.query.filter_by(post_id=post_id, user_id=user_id).first()
-
-        if not post:
-            return jsonify({'error': 'Post not found'}), 404
-
-        # Get data from either JSON or form
-        if request.is_json:
-            data = request.get_json()
-            text = data.get('text')
-            status = data.get('status', post.status)
-            scheduled_time = data.get('scheduled_time')
-        else:
-            text = request.form.get('text')
-            status = request.form.get('status', post.status)
-            scheduled_time = request.form.get('scheduled_time')
-
-        if text is not None:
-            post.content_text = text
-
-        print(f" Updating post {post_id} - Status: {status}, Scheduled: {scheduled_time}")
-
-        # Handle status changes
-        if status == 'published':
-            post.status = 'published'
-            ScheduledPost.query.filter_by(post_id=post.post_id).delete()
-            PostPlatform.query.filter_by(post_id=post.post_id).update({
-                'published': True,
-                'published_at': datetime.now()
-            })
-
-        elif status == 'scheduled' and scheduled_time:
-            try:
-                scheduled_dt = datetime.strptime(scheduled_time, '%Y-%m-%dT%H:%M')
-                post.status = 'scheduled'
-
-                scheduled_post = ScheduledPost.query.filter_by(post_id=post.post_id).first()
-                if scheduled_post:
-                    scheduled_post.scheduled_time = scheduled_dt
-                    scheduled_post.status = 'scheduled'
-                else:
-                    post_platform = PostPlatform.query.filter_by(post_id=post.post_id).first()
-                    if post_platform:
-                        new_sched = ScheduledPost(
-                            post_id=post.post_id,
-                            platform_id=post_platform.platform_id,
-                            scheduled_time=scheduled_dt,
-                            status='scheduled'
-                        )
-                        dbs.session.add(new_sched)
-
-            except ValueError:
-                return jsonify({'error': 'Invalid scheduled time format'}), 400
-
-        elif status == 'draft':
-            post.status = 'draft'
-            ScheduledPost.query.filter_by(post_id=post.post_id).delete()
-
-        elif status == 'approved':
-            post.status = 'approved'
-
-        elif status == 'pending':
-            post.status = 'pending'
-
-        post.updated_at = datetime.now()
-        dbs.session.commit()
-
-        print(f" Updated post {post_id} to status: {post.status}")
-        return jsonify({'message': 'Post updated successfully'}), 200
-
-    except Exception as e:
-        dbs.session.rollback()
-        print(f" Error updating post: {e}")
-        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/posts/<int:post_id>', methods=['DELETE'])
 def delete_post(post_id):
-    """Delete a post"""
+    """Delete a post and also delete it from connected platforms"""
     if 'user_id' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
 
@@ -1375,9 +1531,88 @@ def delete_post(post_id):
         if not post:
             return jsonify({'error': 'Post not found'}), 404
 
+        print(f"\n{'='*60}")
+        print(f"🗑️  DELETING POST {post_id}")
+        print(f"{'='*60}")
+        print(f"Post status: {post.status}")
+
+        # Get all platform posts to delete from social media
+        post_platforms = PostPlatform.query.filter_by(post_id=post_id).all()
+        
+        print(f"📊 Found {len(post_platforms)} platform entries:")
+        for pp in post_platforms:
+            platform = dbs.session.get(Platform, pp.platform_id)
+            platform_name = platform.platform_name if platform else "Unknown"
+            print(f"   - Platform: {platform_name}")
+            print(f"     Published: {pp.published}")
+            print(f"     Platform Post ID: {pp.platform_post_id}")
+            print(f"     Published At: {pp.published_at}")
+        
+        deletion_results = []
+        
+        for pp in post_platforms:
+            platform = dbs.session.get(Platform, pp.platform_id)
+            if not platform:
+                print(f"   ⚠️  Platform {pp.platform_id} not found in database")
+                continue
+            
+            platform_name = platform.platform_name
+            
+            # Check if we should try to delete
+            if not pp.published:
+                print(f"   ⏭️  Skipping {platform_name} - not published")
+                continue
+                
+            if not pp.platform_post_id:
+                print(f"   ⚠️  Cannot delete from {platform_name} - no platform_post_id stored!")
+                print(f"       This means the post ID wasn't saved when publishing")
+                deletion_results.append({
+                    'platform': platform_name,
+                    'success': False,
+                    'message': 'No platform post ID stored'
+                })
+                continue
+            
+            # Get user's linked account for this platform
+            account = LinkedAccount.query.filter_by(
+                user_id=user_id,
+                platform_id=pp.platform_id
+            ).first()
+            
+            if not account or not account.access_token:
+                print(f"   ⚠️  No valid account/token for {platform_name}")
+                deletion_results.append({
+                    'platform': platform_name,
+                    'success': False,
+                    'message': 'No linked account or token'
+                })
+                continue
+            
+            # Try to delete from platform
+            print(f"\n📍 Attempting to delete from {platform_name}...")
+            print(f"   Platform Post ID: {pp.platform_post_id}")
+            
+            success, message = delete_from_platform(
+                pp.platform_post_id,
+                platform_name,
+                account
+            )
+            
+            deletion_results.append({
+                'platform': platform_name,
+                'success': success,
+                'message': message
+            })
+            
+            if success:
+                print(f"✅ Successfully deleted from {platform_name}")
+            else:
+                print(f"❌ Failed to delete from {platform_name}: {message}")
+
         # Delete media file
         if post.media_url and os.path.exists(post.media_url):
             os.remove(post.media_url)
+            print(f"🗑️  Deleted media file")
 
         # Delete scheduled posts first (foreign key constraint)
         ScheduledPost.query.filter_by(post_id=post.post_id).delete()
@@ -1385,19 +1620,26 @@ def delete_post(post_id):
         # Delete post platforms
         PostPlatform.query.filter_by(post_id=post.post_id).delete()
 
-        # Delete post
+        # Delete post from database
         dbs.session.delete(post)
         dbs.session.commit()
 
-        print(f" Deleted post {post_id}")
-        return jsonify({'message': 'Post deleted successfully'}), 200
+        print(f"✅ Post {post_id} deleted from database")
+        print(f"{'='*60}\n")
+
+        # Return results including platform deletion status
+        return jsonify({
+            'message': 'Post deleted successfully',
+            'platform_deletions': deletion_results
+        }), 200
 
     except Exception as e:
         dbs.session.rollback()
-        print(f" Error deleting post: {e}")
+        print(f"❌ Error deleting post: {e}")
+        import traceback
+        print(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
-
-
+    
 @app.route('/api/notification-count', methods=['GET'])
 def get_notification_count():
     """Get notification count for current user"""
