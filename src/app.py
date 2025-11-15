@@ -87,6 +87,7 @@ class User(dbs.Model):
     __tablename__ = 'user'
     user_id = dbs.Column(dbs.Integer, primary_key=True)
     email = dbs.Column(dbs.String(100), unique=True, nullable=False)
+    password_hash = dbs.Column(dbs.String(255))
     full_name = dbs.Column(dbs.String(100))
     role = dbs.Column(dbs.String(20), default='user')
     created_at = dbs.Column(dbs.DateTime, default=datetime.utcnow)
@@ -182,12 +183,14 @@ def allowed_file(filename):
 
 def get_file_type(filename):
     """Get file type (image/video)"""
+    if '.' not in filename:
+        return 'unknown'
     ext = filename.rsplit('.', 1)[1].lower()
     if ext in {'png', 'jpg', 'jpeg', 'gif'}:
         return 'image'
     elif ext in {'mp4', 'mov', 'avi', 'webm'}:
         return 'video'
-    return None
+    return 'unknown'
 
 
 # ---------------------------
@@ -747,7 +750,7 @@ def invite_member():
         # Check if email already exists
         existing_user = User.query.filter_by(email=email).first()
         if existing_user:
-            return {'success': False, 'message': 'Email already registered'}, 400
+            return jsonify({'success': False, 'message': 'Email already exists'}), 200
 
         # Generate temporary password
         import secrets
@@ -761,30 +764,15 @@ def invite_member():
         # Create new user
         new_user = User(
             email=email,
+            password_hash=hashed_password,
             full_name=name,
             role=role
         )
-
-        # Add password_hash column if doesn't exist in model
-        # For now, we'll use SQLAlchemy raw SQL to insert
-        from sqlalchemy import text
-        query = text("""
-            INSERT INTO user (email, password_hash, full_name, role)
-            VALUES (:email, :password_hash, :full_name, :role)
-        """)
-
-        dbs.session.execute(query, {
-            'email': email,
-            'password_hash': hashed_password,
-            'full_name': name,
-            'role': role
-        })
+        
+        dbs.session.add(new_user)
         dbs.session.commit()
 
-        # Get the newly created user
-        new_user = User.query.filter_by(email=email).first()
-
-        return {
+        return jsonify({
             'success': True,
             'message': f'Successfully invited {name}!',
             'temp_password': temp_password,
@@ -794,12 +782,12 @@ def invite_member():
                 'email': new_user.email,
                 'role': new_user.role
             }
-        }
+        })
 
     except Exception as e:
         dbs.session.rollback()
         print(f"Error inviting member: {e}")
-        return {'success': False, 'message': str(e)}, 500
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 
 @app.route('/search_members')

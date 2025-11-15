@@ -20,12 +20,20 @@ class TestAuthModule:
     """Test auth module functions"""
     
     def test_init_auth(self):
-        """Test init_auth sets User and dbs"""
-        from src.auth import init_auth, User as AuthUser, dbs as AuthDbs
+        """Test init_auth function works correctly"""
+        from src.auth import init_auth
+        import src.auth as auth_module
         
-        # Initial state should have User and dbs set
-        assert AuthUser is not None
-        assert AuthDbs is not None
+        # Create mock User and dbs
+        mock_user = "MockUser"
+        mock_dbs = "MockDbs"
+        
+        # Call init_auth
+        init_auth(mock_user, mock_dbs)
+        
+        # Verify they were set
+        assert auth_module.User == mock_user
+        assert auth_module.dbs == mock_dbs
 
 
 class TestSignup:

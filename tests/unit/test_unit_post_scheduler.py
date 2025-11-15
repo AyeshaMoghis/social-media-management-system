@@ -3,7 +3,7 @@ Unit tests for Post Scheduler functionality
 """
 import pytest
 from datetime import datetime, timedelta
-from src.app import app, dbs, Post, PostPlatform, ScheduledPost, Platform, User
+from src.app import app, dbs, Post, PostPlatform, ScheduledPost, Platform, User, LinkedAccount
 from werkzeug.datastructures import FileStorage
 import io
 import os
@@ -34,6 +34,16 @@ def client():
             is_active=True
         )
         dbs.session.add(test_platform)
+        dbs.session.flush()
+
+        # Create a linked account so post-scheduler page doesn't redirect
+        linked_account = LinkedAccount(
+            user_id=test_user.user_id,
+            platform_id=test_platform.platform_id,
+            access_token='test_token',
+            account_username='test_twitter_user'
+        )
+        dbs.session.add(linked_account)
 
         dbs.session.commit()
 
@@ -215,6 +225,7 @@ class TestPostSchedulerRoutes:
 
         with client.session_transaction() as sess:
             sess['user_id'] = 1
+            sess['role'] = 'manager'  # Manager can create scheduled posts directly
 
         response = client.post('/api/posts', data={
             'text': 'Test scheduled post',
