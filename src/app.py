@@ -319,7 +319,7 @@ def publish_to_linkedin(post, account):
             return None if id_mode else (False, error_msg)
             
     except requests.exceptions.Timeout:
-        error_msg = "LinkedIn API request timed out"
+        error_msg = "LinkedIn API request timeout"
         print(f" {error_msg}")
         return None if id_mode else (False, error_msg)
     except requests.exceptions.RequestException as e:
@@ -400,7 +400,7 @@ def publish_to_twitter(post, account):
             return None if id_mode else (False, error_msg)
             
     except requests.exceptions.Timeout:
-        error_msg = "Twitter API request timed out"
+        error_msg = "Twitter API request timeout"
         print(f" {error_msg}")
         return None if id_mode else (False, error_msg)
     except requests.exceptions.RequestException as e:
