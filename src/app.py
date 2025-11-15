@@ -143,6 +143,11 @@ class OAuthState(dbs.Model):
         if 'state_id' in kwargs and 'state_token' not in kwargs:
             kwargs['state_token'] = kwargs.pop('state_id')
         super().__init__(*args, **kwargs)
+    
+    @property
+    def state_id(self):
+        """Backward compatibility property for tests accessing state_id"""
+        return self.state_token
 
 
 class Post(dbs.Model):
