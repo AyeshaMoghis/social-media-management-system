@@ -1086,8 +1086,10 @@ def create_post():
         if not text and not media_file:
             print(" Validation failed: No text or media")
             return jsonify({'error': 'Post must contain text or media'}), 400
-        if not account_ids:
-            print(" Validation failed: No accounts selected")
+        
+        # Only require accounts for non-draft posts
+        if status != 'draft' and not account_ids:
+            print(" Validation failed: No accounts selected for non-draft post")
             return jsonify({'error': 'At least one account must be selected'}), 400
         
         print(f" Validation passed")
