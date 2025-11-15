@@ -69,20 +69,28 @@ class TestSignup:
         from werkzeug.security import generate_password_hash
         from sqlalchemy import text
         
-        # Check if user exists
+        # Clean up any existing user first
         existing = User.query.filter_by(email='duplicate@test.com').first()
-        if not existing:
-            query = text("""
-                INSERT INTO user (email, password_hash, full_name, role)
-                VALUES (:email, :password_hash, :full_name, :role)
-            """)
-            dbs.session.execute(query, {
-                'email': 'duplicate@test.com',
-                'password_hash': generate_password_hash('password'),
-                'full_name': 'Duplicate User',
-                'role': 'user'
-            })
+        if existing:
+            dbs.session.delete(existing)
             dbs.session.commit()
+        
+        # Create the first user
+        query = text("""
+            INSERT INTO user (email, password_hash, full_name, role)
+            VALUES (:email, :password_hash, :full_name, :role)
+        """)
+        dbs.session.execute(query, {
+            'email': 'duplicate@test.com',
+            'password_hash': generate_password_hash('password'),
+            'full_name': 'Duplicate User',
+            'role': 'user'
+        })
+        dbs.session.commit()
+        
+        # Verify user was created
+        user = User.query.filter_by(email='duplicate@test.com').first()
+        assert user is not None, "First user was not created"
         
         # Try to signup with same email
         response = client.post('/signup', data={
@@ -90,10 +98,13 @@ class TestSignup:
             'email': 'duplicate@test.com',
             'password': 'password123',
             'role': 'user'
-        })
+        }, follow_redirects=True)
         
+        # Should return 200 (stayed on signup page)
         assert response.status_code == 200
-        assert b'already registered' in response.data or b'exists' in response.data
+        # Check for flash message in response
+        assert b'already registered' in response.data or b'exists' in response.data, \
+            f"Expected flash message not found. Response content: {response.data[:500]}"
         
         # Cleanup
         user = User.query.filter_by(email='duplicate@test.com').first()
