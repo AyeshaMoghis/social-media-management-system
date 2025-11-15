@@ -74,6 +74,7 @@ A comprehensive social media management platform that integrates multiple social
 3. **Install dependencies**
    ```bash
    pip install -r requirements.txt
+   pip install -r requirements-dev.txt
    ```
 
 4. **Set up environment variables**
