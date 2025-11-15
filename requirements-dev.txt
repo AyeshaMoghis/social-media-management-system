@@ -1,28 +1,29 @@
 # Testing Framework
-pytest==7.4.3
-pytest-cov==4.1.0
-pytest-mock==3.12.0
-pytest-flask==1.3.0
+pytest
+pytest-cov
+pytest-mock
+pytest-flask
 
 # Code Coverage
 coverage==7.3.2
 
 # Code Quality & Linting
-pylint==3.0.2
-flake8==6.1.0
-black==23.11.0
-isort==5.12.0
-mypy==1.7.0
+pylint
+flake8
+black
+isort
+mypy
 
 # Security Scanning
-bandit==1.7.5
-safety>=3.0.0
-pip-audit==2.6.1
+bandit
+safety
+pip-audit
+
 # Additional Testing Utilities
-faker==20.0.3
-factory-boy==3.3.0
-responses==0.24.1
+faker
+factory-boy
+responses
 
 # Development Tools
-ipython==8.17.2
-ipdb==0.13.13
+ipython
+ipdb

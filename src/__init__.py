@@ -4,8 +4,13 @@ from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
 
-# Dynamically use SQLite if in TESTING mode
-database_uri = os.getenv("DATABASE_URL", "mysql+pymysql://root:root@localhost/smms_db")
+# Base MySQL URI (fixed to use PyMySQL)
+default_mysql_uri = "mysql+pymysql://root:root@localhost/smms_db"
+
+# Use DATABASE_URL if provided, else fallback to MySQL+pymysql
+database_uri = os.getenv("DATABASE_URL", default_mysql_uri)
+
+# Use SQLite for testing
 if os.getenv("TESTING") == "true":
     database_uri = "sqlite:///:memory:"
 
