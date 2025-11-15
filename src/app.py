@@ -575,7 +575,7 @@ def check_and_publish_scheduled_posts():
 # IMPORT AUTH BLUEPRINT
 # ---------------------------
 # Import auth blueprint (from same directory)
-from auth import auth, init_auth
+from src.auth import auth, init_auth
 
 # Initialize auth with User model and database
 init_auth(User, dbs)
@@ -1540,7 +1540,7 @@ def linkedin_callback():
             return "Missing authorization code", 400
 
         # State must exist in DB
-        oauth_state = OAuthState.query.filter_by(state_id=state).first()
+        oauth_state = OAuthState.query.filter_by(state_token=state).first()
         if not oauth_state:
             return "Invalid OAuth state", 400
 
@@ -1717,7 +1717,7 @@ def callback_twitter():
             return jsonify({"error": "Missing state or code"}), 400
 
         # Verify state from DATABASE (not session)
-        oauth_state = OAuthState.query.filter_by(state_id=state).first()
+        oauth_state = OAuthState.query.filter_by(state_token=state).first()
         if not oauth_state:
             print(f" Invalid OAuth state: {state}")
             return jsonify({"error": "Invalid OAuth state"}), 400

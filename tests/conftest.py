@@ -29,5 +29,7 @@ def client():
     """Create test client - single instance per test"""
     app.config['TESTING'] = True
     app.config['WTF_CSRF_ENABLED'] = False  # Disable CSRF for testing
-    with app.test_client() as test_client:
-        yield test_client
+    app.config['SQLALCHEMY_ECHO'] = False  # Disable SQL logging in tests
+    with app.app_context():
+        with app.test_client() as test_client:
+            yield test_client

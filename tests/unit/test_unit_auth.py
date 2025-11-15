@@ -18,6 +18,10 @@ class TestAuthModule:
         from src.auth import init_auth
         import src.auth as auth_module
         
+        # Save original values
+        original_user = auth_module.User
+        original_dbs = auth_module.dbs
+        
         # Create mock User and dbs
         mock_user = "MockUser"
         mock_dbs = "MockDbs"
@@ -28,6 +32,9 @@ class TestAuthModule:
         # Verify they were set
         assert auth_module.User == mock_user
         assert auth_module.dbs == mock_dbs
+        
+        # Restore original values to prevent test pollution
+        init_auth(original_user, original_dbs)
 
 
 class TestSignup:
