@@ -3,7 +3,6 @@ Social Media Management System - Flask Application
 Integrates authentication + social media OAuth connections
 """
 # Standard library imports
-from auth import auth, init_auth
 import os
 import secrets
 import hashlib
@@ -497,6 +496,7 @@ def check_and_publish_scheduled_posts():
 # IMPORT AUTH BLUEPRINT
 # ---------------------------
 # Import auth blueprint (from same directory)
+from auth import auth, init_auth
 
 # Initialize auth with User model and database
 init_auth(User, dbs)
