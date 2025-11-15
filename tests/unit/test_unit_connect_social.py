@@ -273,8 +273,9 @@ class TestLinkedInOAuthFlow:
         assert 'linkedin.com' in response.location
         assert 'oauth/v2/authorization' in response.location
     
+    @patch('requests.get')
     @patch('requests.post')
-    def test_linkedin_callback_success(self, mock_post, client):
+    def test_linkedin_callback_success(self, mock_post, mock_get, client):
         """Test successful LinkedIn OAuth callback"""
         user = User(email="linkedin_callback_test@example.com")
         dbs.session.add(user)
@@ -309,6 +310,14 @@ class TestLinkedInOAuthFlow:
         mock_post.return_value.json.return_value = {
             "access_token": "test_access_token",
             "id_token": fake_id_token
+        }
+        
+        # Mock profile fetch
+        mock_get.return_value.status_code = 200
+        mock_get.return_value.json.return_value = {
+            "sub": "test_linkedin_id",
+            "name": "Test User",
+            "email": "linkedin_callback_test@example.com"
         }
         
         # Execute callback
