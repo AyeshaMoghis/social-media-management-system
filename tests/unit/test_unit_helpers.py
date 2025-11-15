@@ -59,17 +59,16 @@ class TestFileUploadEndpoint:
 
     def test_upload_without_file(self, client):
         """Test upload endpoint without file"""
-        with app.app_context():
-            user = User(email='user@test.com', full_name='User', role='user')
-            dbs.session.add(user)
-            dbs.session.commit()
+        user = User(email='user@test.com', full_name='User', role='user')
+        dbs.session.add(user)
+        dbs.session.commit()
 
-            with client.session_transaction() as sess:
-                sess['user_id'] = user.user_id
-                sess['role'] = 'user'
+        with client.session_transaction() as sess:
+            sess['user_id'] = user.user_id
+            sess['role'] = 'user'
 
-            response = client.post('/upload', data={})
-            assert response.status_code in [400, 302]
+        response = client.post('/upload', data={})
+        assert response.status_code in [400, 302]
 
     def test_upload_without_login(self, client):
         """Test upload endpoint requires login"""
@@ -90,30 +89,29 @@ class TestPostSchedulerPage:
 
     def test_post_scheduler_with_login(self, client):
         """Test post scheduler page with logged-in user"""
-        with app.app_context():
-            user = User(email='user@test.com', full_name='User', role='user')
-            dbs.session.add(user)
-            dbs.session.commit()
+        user = User(email='user@test.com', full_name='User', role='user')
+        dbs.session.add(user)
+        dbs.session.commit()
 
-            # Add a platform so post-scheduler doesn't redirect
-            platform = Platform(
-                user_id=user.user_id,
-                platform_name='twitter',
-                platform_user_id='twitter_123',
-                access_token='token',
-                expires_at=datetime(2030, 1, 1)
-            )
-            dbs.session.add(platform)
-            dbs.session.commit()
+        # Add a platform so post-scheduler doesn't redirect
+        platform = Platform(
+            user_id=user.user_id,
+            platform_name='twitter',
+            platform_user_id='twitter_123',
+            access_token='token',
+            expires_at=datetime(2030, 1, 1)
+        )
+        dbs.session.add(platform)
+        dbs.session.commit()
 
-            with client.session_transaction() as sess:
-                sess['user_id'] = user.user_id
-                sess['full_name'] = user.full_name
-                sess['role'] = 'user'
+        with client.session_transaction() as sess:
+            sess['user_id'] = user.user_id
+            sess['full_name'] = user.full_name
+            sess['role'] = 'user'
 
-            response = client.get('/post-scheduler')
-            # May return 200 or redirect depending on whether user has linked accounts
-            assert response.status_code in [200, 302]
+        response = client.get('/post-scheduler')
+        # May return 200 or redirect depending on whether user has linked accounts
+        assert response.status_code in [200, 302]
 
 
 class TestHomePage:
@@ -137,39 +135,37 @@ class TestSearchAndFilter:
 
     def test_team_collaboration_with_search(self, client):
         """Test team collaboration page with search query"""
-        with app.app_context():
-            manager = User(email='manager@test.com', full_name='Manager', role='manager')
-            user = User(email='user@test.com', full_name='User', role='user')
-            dbs.session.add_all([manager, user])
-            dbs.session.commit()
+        manager = User(email='manager@test.com', full_name='Manager', role='manager')
+        user = User(email='user@test.com', full_name='User', role='user')
+        dbs.session.add_all([manager, user])
+        dbs.session.commit()
 
-            post1 = Post(user_id=user.user_id, content_text='Hello world', status='pending')
-            post2 = Post(user_id=user.user_id, content_text='Python programming', status='pending')
-            dbs.session.add_all([post1, post2])
-            dbs.session.commit()
+        post1 = Post(user_id=user.user_id, content_text='Hello world', status='pending')
+        post2 = Post(user_id=user.user_id, content_text='Python programming', status='pending')
+        dbs.session.add_all([post1, post2])
+        dbs.session.commit()
 
-            with client.session_transaction() as sess:
-                sess['user_id'] = manager.user_id
-                sess['full_name'] = manager.full_name
-                sess['role'] = 'manager'
+        with client.session_transaction() as sess:
+            sess['user_id'] = manager.user_id
+            sess['full_name'] = manager.full_name
+            sess['role'] = 'manager'
 
-            response = client.get('/team-collaboration?search=Python')
-            assert response.status_code == 200
+        response = client.get('/team-collaboration?search=Python')
+        assert response.status_code == 200
 
     def test_team_collaboration_with_filter(self, client):
         """Test team collaboration page with status filter"""
-        with app.app_context():
-            manager = User(email='manager@test.com', full_name='Manager', role='manager')
-            dbs.session.add(manager)
-            dbs.session.commit()
+        manager = User(email='manager@test.com', full_name='Manager', role='manager')
+        dbs.session.add(manager)
+        dbs.session.commit()
 
-            with client.session_transaction() as sess:
-                sess['user_id'] = manager.user_id
-                sess['full_name'] = manager.full_name
-                sess['role'] = 'manager'
+        with client.session_transaction() as sess:
+            sess['user_id'] = manager.user_id
+            sess['full_name'] = manager.full_name
+            sess['role'] = 'manager'
 
-            response = client.get('/team-collaboration?status=pending')
-            assert response.status_code == 200
+        response = client.get('/team-collaboration?status=pending')
+        assert response.status_code == 200
 
 
 class TestInviteMemberEndpoint:
@@ -177,21 +173,20 @@ class TestInviteMemberEndpoint:
 
     def test_invite_member_requires_manager_role(self, client):
         """Test invite member endpoint requires manager role"""
-        with app.app_context():
-            user = User(email='user@test.com', full_name='User', role='user')
-            dbs.session.add(user)
-            dbs.session.commit()
+        user = User(email='user@test.com', full_name='User', role='user')
+        dbs.session.add(user)
+        dbs.session.commit()
 
-            with client.session_transaction() as sess:
-                sess['user_id'] = user.user_id
-                sess['role'] = 'user'
+        with client.session_transaction() as sess:
+            sess['user_id'] = user.user_id
+            sess['role'] = 'user'
 
-            response = client.post('/invite_member', json={
-                'name': 'New Member',
-                'email': 'new@test.com',
-                'role': 'user'
-            })
-            assert response.status_code in [403, 302]
+        response = client.post('/invite_member', json={
+            'name': 'New Member',
+            'email': 'new@test.com',
+            'role': 'user'
+        })
+        assert response.status_code in [403, 302]
 
     def test_invite_member_without_login(self, client):
         """Test invite member requires authentication"""
@@ -208,21 +203,20 @@ class TestBeforeRequestHandler:
 
     def test_session_made_permanent_for_logged_in_user(self, client):
         """Test that session is made permanent for logged-in users"""
-        with app.app_context():
-            user = User(email='user@test.com', full_name='User', role='user')
-            dbs.session.add(user)
-            dbs.session.commit()
+        user = User(email='user@test.com', full_name='User', role='user')
+        dbs.session.add(user)
+        dbs.session.commit()
 
-            with client.session_transaction() as sess:
-                sess['user_id'] = user.user_id
-                sess['role'] = 'user'
+        with client.session_transaction() as sess:
+            sess['user_id'] = user.user_id
+            sess['role'] = 'user'
 
-            # Make any request to trigger before_request
-            response = client.get('/')
+        # Make any request to trigger before_request
+        response = client.get('/')
             
-            # Session should remain valid
-            with client.session_transaction() as sess:
-                assert 'user_id' in sess
+        # Session should remain valid
+        with client.session_transaction() as sess:
+            assert 'user_id' in sess
 
 
 class TestErrorHandling:
@@ -235,17 +229,16 @@ class TestErrorHandling:
 
     def test_get_nonexistent_post(self, client):
         """Test accessing non-existent post"""
-        with app.app_context():
-            user = User(email='user@test.com', full_name='User', role='user')
-            dbs.session.add(user)
-            dbs.session.commit()
+        user = User(email='user@test.com', full_name='User', role='user')
+        dbs.session.add(user)
+        dbs.session.commit()
 
-            with client.session_transaction() as sess:
-                sess['user_id'] = user.user_id
-                sess['role'] = 'user'
+        with client.session_transaction() as sess:
+            sess['user_id'] = user.user_id
+            sess['role'] = 'user'
 
-            response = client.get('/api/posts/99999')
-            assert response.status_code in [404, 500]
+        response = client.get('/api/posts/99999')
+        assert response.status_code in [404, 500]
 
 
 class TestSessionPersistence:
@@ -253,25 +246,24 @@ class TestSessionPersistence:
 
     def test_session_persists_after_request(self, client):
         """Test session data persists across multiple requests"""
-        with app.app_context():
-            user = User(email='user@test.com', full_name='User', role='user')
-            dbs.session.add(user)
-            dbs.session.commit()
+        user = User(email='user@test.com', full_name='User', role='user')
+        dbs.session.add(user)
+        dbs.session.commit()
 
-            with client.session_transaction() as sess:
-                sess['user_id'] = user.user_id
-                sess['full_name'] = user.full_name
-                sess['role'] = 'user'
+        with client.session_transaction() as sess:
+            sess['user_id'] = user.user_id
+            sess['full_name'] = user.full_name
+            sess['role'] = 'user'
 
-            # Make first request
-            response1 = client.get('/')
+        # Make first request
+        response1 = client.get('/')
             
-            # Make second request
-            response2 = client.get('/')
+        # Make second request
+        response2 = client.get('/')
             
-            # Session should still be valid
-            with client.session_transaction() as sess:
-                assert sess.get('user_id') == user.user_id
+        # Session should still be valid
+        with client.session_transaction() as sess:
+            assert sess.get('user_id') == user.user_id
 
 
 class TestDraftPosts:
@@ -279,40 +271,38 @@ class TestDraftPosts:
 
     def test_create_draft_post(self, client):
         """Test creating a draft post"""
-        with app.app_context():
-            user = User(email='user@test.com', full_name='User', role='user')
-            dbs.session.add(user)
-            dbs.session.commit()
+        user = User(email='user@test.com', full_name='User', role='user')
+        dbs.session.add(user)
+        dbs.session.commit()
 
-            with client.session_transaction() as sess:
-                sess['user_id'] = user.user_id
-                sess['role'] = 'user'
+        with client.session_transaction() as sess:
+            sess['user_id'] = user.user_id
+            sess['role'] = 'user'
 
-            response = client.post('/api/posts', data={
-                'text': 'This is a draft',
-                'status': 'draft'
-            })
+        response = client.post('/api/posts', data={
+            'text': 'This is a draft',
+            'status': 'draft'
+        })
 
-            assert response.status_code == 201
+        assert response.status_code == 201
 
     def test_edit_draft_post(self, client):
         """Test editing a draft post"""
-        with app.app_context():
-            user = User(email='user@test.com', full_name='User', role='user')
-            dbs.session.add(user)
-            dbs.session.commit()
+        user = User(email='user@test.com', full_name='User', role='user')
+        dbs.session.add(user)
+        dbs.session.commit()
 
-            post = Post(user_id=user.user_id, content_text='Draft content', status='draft')
-            dbs.session.add(post)
-            dbs.session.commit()
+        post = Post(user_id=user.user_id, content_text='Draft content', status='draft')
+        dbs.session.add(post)
+        dbs.session.commit()
 
-            with client.session_transaction() as sess:
-                sess['user_id'] = user.user_id
-                sess['role'] = 'user'
+        with client.session_transaction() as sess:
+            sess['user_id'] = user.user_id
+            sess['role'] = 'user'
 
-            response = client.put(f'/api/posts/{post.post_id}', json={
-                'text': 'Updated draft content'
-            })
+        response = client.put(f'/api/posts/{post.post_id}', json={
+            'text': 'Updated draft content'
+        })
 
-            # May succeed or fail depending on route implementation
-            assert response.status_code in [200, 404, 500]
+        # May succeed or fail depending on route implementation
+        assert response.status_code in [200, 404, 500]

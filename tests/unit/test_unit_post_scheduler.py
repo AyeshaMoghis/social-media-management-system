@@ -18,29 +18,28 @@ def client():
     app.config['UPLOAD_FOLDER'] = 'test_uploads'
 
     with app.test_client() as client:
-        with app.app_context():
-            dbs.create_all()
+        dbs.create_all()
 
-            # Create test user
-            test_user = User(
-                email='testuser@example.com',
-                full_name='Test User',
-                role='user'
-            )
-            dbs.session.add(test_user)
+        # Create test user
+        test_user = User(
+            email='testuser@example.com',
+            full_name='Test User',
+            role='user'
+        )
+        dbs.session.add(test_user)
 
-            # Create test platform
-            test_platform = Platform(
-                platform_name='Twitter',
-                is_active=True
-            )
-            dbs.session.add(test_platform)
+        # Create test platform
+        test_platform = Platform(
+            platform_name='Twitter',
+            is_active=True
+        )
+        dbs.session.add(test_platform)
 
-            dbs.session.commit()
+        dbs.session.commit()
 
-            yield client
+        yield client
 
-            dbs.drop_all()
+        dbs.drop_all()
 
     # Cleanup test uploads folder
     if os.path.exists('test_uploads'):
@@ -53,33 +52,31 @@ class TestPostModel:
 
     def test_post_creation(self, client):
         """Test creating a post"""
-        with app.app_context():
-            user = User.query.first()
-            post = Post(
-                user_id=user.user_id,
-                content_text='Test post content',
-                status='draft'
-            )
-            dbs.session.add(post)
-            dbs.session.commit()
+        user = User.query.first()
+        post = Post(
+            user_id=user.user_id,
+            content_text='Test post content',
+            status='draft'
+        )
+        dbs.session.add(post)
+        dbs.session.commit()
 
-            assert post.post_id is not None
-            assert post.content_text == 'Test post content'
-            assert post.status == 'draft'
-            assert post.created_at is not None
+        assert post.post_id is not None
+        assert post.content_text == 'Test post content'
+        assert post.status == 'draft'
+        assert post.created_at is not None
 
     def test_post_default_status(self, client):
         """Test post default status is draft"""
-        with app.app_context():
-            user = User.query.first()
-            post = Post(
-                user_id=user.user_id,
-                content_text='Test post'
-            )
-            dbs.session.add(post)
-            dbs.session.commit()
+        user = User.query.first()
+        post = Post(
+            user_id=user.user_id,
+            content_text='Test post'
+        )
+        dbs.session.add(post)
+        dbs.session.commit()
 
-            assert post.status == 'draft'
+        assert post.status == 'draft'
 
 
 class TestPostPlatformModel:
@@ -87,28 +84,27 @@ class TestPostPlatformModel:
 
     def test_post_platform_creation(self, client):
         """Test linking post to platform"""
-        with app.app_context():
-            user = User.query.first()
-            platform = Platform.query.first()
+        user = User.query.first()
+        platform = Platform.query.first()
 
-            post = Post(
-                user_id=user.user_id,
-                content_text='Test post',
-                status='draft'
-            )
-            dbs.session.add(post)
-            dbs.session.flush()
+        post = Post(
+            user_id=user.user_id,
+            content_text='Test post',
+            status='draft'
+        )
+        dbs.session.add(post)
+        dbs.session.flush()
 
-            post_platform = PostPlatform(
-                post_id=post.post_id,
-                platform_id=platform.platform_id
-            )
-            dbs.session.add(post_platform)
-            dbs.session.commit()
+        post_platform = PostPlatform(
+            post_id=post.post_id,
+            platform_id=platform.platform_id
+        )
+        dbs.session.add(post_platform)
+        dbs.session.commit()
 
-            assert post_platform.post_id == post.post_id
-            assert post_platform.platform_id == platform.platform_id
-            assert post_platform.published is False
+        assert post_platform.post_id == post.post_id
+        assert post_platform.platform_id == platform.platform_id
+        assert post_platform.published is False
 
 
 class TestScheduledPostModel:
@@ -116,29 +112,28 @@ class TestScheduledPostModel:
 
     def test_scheduled_post_creation(self, client):
         """Test creating a scheduled post"""
-        with app.app_context():
-            user = User.query.first()
-            platform = Platform.query.first()
+        user = User.query.first()
+        platform = Platform.query.first()
 
-            post = Post(
-                user_id=user.user_id,
-                content_text='Scheduled post',
-                status='scheduled'
-            )
-            dbs.session.add(post)
-            dbs.session.flush()
+        post = Post(
+            user_id=user.user_id,
+            content_text='Scheduled post',
+            status='scheduled'
+        )
+        dbs.session.add(post)
+        dbs.session.flush()
 
-            future_time = datetime.now() + timedelta(hours=2)
-            scheduled_post = ScheduledPost(
-                post_id=post.post_id,
-                platform_id=platform.platform_id,
-                scheduled_time=future_time
-            )
-            dbs.session.add(scheduled_post)
-            dbs.session.commit()
+        future_time = datetime.now() + timedelta(hours=2)
+        scheduled_post = ScheduledPost(
+            post_id=post.post_id,
+            platform_id=platform.platform_id,
+            scheduled_time=future_time
+        )
+        dbs.session.add(scheduled_post)
+        dbs.session.commit()
 
-            assert scheduled_post.scheduled_time == future_time
-            assert scheduled_post.status == 'scheduled'
+        assert scheduled_post.scheduled_time == future_time
+        assert scheduled_post.status == 'scheduled'
 
 
 class TestPostSchedulerRoutes:
@@ -192,54 +187,52 @@ class TestPostSchedulerRoutes:
 
     def test_create_draft_post(self, client):
         """Test creating a draft post"""
-        with app.app_context():
-            platform = Platform.query.first()
+        platform = Platform.query.first()
 
-            with client.session_transaction() as sess:
-                sess['user_id'] = 1
+        with client.session_transaction() as sess:
+            sess['user_id'] = 1
 
-            response = client.post('/api/posts', data={
-                'text': 'Test draft post',
-                'account_ids[]': [platform.platform_id],
-                'status': 'draft'
-            })
+        response = client.post('/api/posts', data={
+            'text': 'Test draft post',
+            'account_ids[]': [platform.platform_id],
+            'status': 'draft'
+        })
 
-            assert response.status_code == 201
-            data = response.get_json()
-            assert 'post_id' in data
-            assert data['message'] == 'Post created successfully'
+        assert response.status_code == 201
+        data = response.get_json()
+        assert 'post_id' in data
+        assert data['message'] == 'Post created successfully'
 
-            # Verify in database
-            post = Post.query.get(data['post_id'])
-            assert post.content_text == 'Test draft post'
-            assert post.status == 'draft'
+        # Verify in database
+        post = Post.query.get(data['post_id'])
+        assert post.content_text == 'Test draft post'
+        assert post.status == 'draft'
 
     def test_create_scheduled_post(self, client):
         """Test creating a scheduled post"""
-        with app.app_context():
-            platform = Platform.query.first()
-            future_time = (datetime.now() + timedelta(hours=2)).strftime('%Y-%m-%dT%H:%M')
+        platform = Platform.query.first()
+        future_time = (datetime.now() + timedelta(hours=2)).strftime('%Y-%m-%dT%H:%M')
 
-            with client.session_transaction() as sess:
-                sess['user_id'] = 1
+        with client.session_transaction() as sess:
+            sess['user_id'] = 1
 
-            response = client.post('/api/posts', data={
-                'text': 'Test scheduled post',
-                'account_ids[]': [platform.platform_id],
-                'status': 'scheduled',
-                'scheduled_time': future_time
-            })
+        response = client.post('/api/posts', data={
+            'text': 'Test scheduled post',
+            'account_ids[]': [platform.platform_id],
+            'status': 'scheduled',
+            'scheduled_time': future_time
+        })
 
-            assert response.status_code == 201
-            data = response.get_json()
-            assert 'post_id' in data
+        assert response.status_code == 201
+        data = response.get_json()
+        assert 'post_id' in data
 
-            # Verify in database
-            post = Post.query.get(data['post_id'])
-            assert post.status == 'scheduled'
+        # Verify in database
+        post = Post.query.get(data['post_id'])
+        assert post.status == 'scheduled'
 
-            scheduled = ScheduledPost.query.filter_by(post_id=post.post_id).first()
-            assert scheduled is not None
+        scheduled = ScheduledPost.query.filter_by(post_id=post.post_id).first()
+        assert scheduled is not None
 
     def test_update_post_requires_login(self, client):
         """Test PUT /api/posts/<id> requires login"""

@@ -15,29 +15,28 @@ def client():
     app.config['SECRET_KEY'] = 'test-secret-key'
 
     with app.test_client() as client:
-        with app.app_context():
-            dbs.create_all()
+        dbs.create_all()
 
-            # Create test manager
-            manager = User(
-                email='manager@test.com',
-                full_name='Test Manager',
-                role='manager'
-            )
-            dbs.session.add(manager)
+        # Create test manager
+        manager = User(
+            email='manager@test.com',
+            full_name='Test Manager',
+            role='manager'
+        )
+        dbs.session.add(manager)
 
-            # Create test user
-            user = User(
-                email='user@test.com',
-                full_name='Test User',
-                role='user'
-            )
-            dbs.session.add(user)
-            dbs.session.commit()
+        # Create test user
+        user = User(
+            email='user@test.com',
+            full_name='Test User',
+            role='user'
+        )
+        dbs.session.add(user)
+        dbs.session.commit()
 
-            yield client
+        yield client
 
-            dbs.drop_all()
+        dbs.drop_all()
 
 
 class TestTeamCollaboration:
@@ -64,113 +63,109 @@ class TestTeamCollaboration:
 
     def test_team_collaboration_shows_pending_posts(self, client):
         """Test team collaboration displays pending posts"""
-        with app.app_context():
-            user = User.query.filter_by(role='user').first()
+        user = User.query.filter_by(role='user').first()
 
-            # Create pending post
-            post = Post(
-                user_id=user.user_id,
-                content_text='Pending post for review',
-                status='pending'
-            )
-            dbs.session.add(post)
-            dbs.session.commit()
+        # Create pending post
+        post = Post(
+            user_id=user.user_id,
+            content_text='Pending post for review',
+            status='pending'
+        )
+        dbs.session.add(post)
+        dbs.session.commit()
 
-            with client.session_transaction() as sess:
-                sess['user_id'] = 1
-                sess['role'] = 'manager'
-                sess['full_name'] = 'Test Manager'
+        with client.session_transaction() as sess:
+            sess['user_id'] = 1
+            sess['role'] = 'manager'
+            sess['full_name'] = 'Test Manager'
 
-            response = client.get('/team-collaboration')
-            assert response.status_code == 200
-            assert b'Pending post for review' in response.data
+        response = client.get('/team-collaboration')
+        assert response.status_code == 200
+        assert b'Pending post for review' in response.data
 
     def test_team_collaboration_shows_scheduled_posts(self, client):
         """Test team collaboration displays scheduled posts"""
-        with app.app_context():
-            user = User.query.filter_by(role='user').first()
+        user = User.query.filter_by(role='user').first()
 
-            # Create scheduled post
-            post = Post(
-                user_id=user.user_id,
-                content_text='Scheduled post for review',
-                status='scheduled'
-            )
-            dbs.session.add(post)
-            dbs.session.commit()
+        # Create scheduled post
+        post = Post(
+            user_id=user.user_id,
+            content_text='Scheduled post for review',
+            status='scheduled'
+        )
+        dbs.session.add(post)
+        dbs.session.commit()
 
-            with client.session_transaction() as sess:
-                sess['user_id'] = 1
-                sess['role'] = 'manager'
-                sess['full_name'] = 'Test Manager'
+        with client.session_transaction() as sess:
+            sess['user_id'] = 1
+            sess['role'] = 'manager'
+            sess['full_name'] = 'Test Manager'
 
-            response = client.get('/team-collaboration')
-            assert response.status_code == 200
-            assert b'Scheduled post for review' in response.data
+        response = client.get('/team-collaboration')
+        assert response.status_code == 200
+        assert b'Scheduled post for review' in response.data
 
     def test_update_post_status_approve(self, client):
         """Test approving a post"""
-        with app.app_context():
-            user = User.query.filter_by(role='user').first()
-            post = Post(
-                user_id=user.user_id,
-                content_text='Post to approve',
-                status='pending'
-            )
-            dbs.session.add(post)
-            dbs.session.commit()
-            post_id = post.post_id
+        user = User.query.filter_by(role='user').first()
+        post = Post(
+            user_id=user.user_id,
+            content_text='Post to approve',
+            status='pending'
+        )
+        dbs.session.add(post)
+        dbs.session.commit()
+        post_id = post.post_id
 
-            with client.session_transaction() as sess:
-                sess['user_id'] = 1
-                sess['role'] = 'manager'
+        with client.session_transaction() as sess:
+            sess['user_id'] = 1
+            sess['role'] = 'manager'
 
-            response = client.post('/update_post_status',
-                                   data=json.dumps({
-                                       'post_id': post_id,
-                                       'action': 'approved'
-                                   }),
-                                   content_type='application/json')
+        response = client.post('/update_post_status',
+                               data=json.dumps({
+                                   'post_id': post_id,
+                                   'action': 'approved'
+                               }),
+                               content_type='application/json')
 
-            assert response.status_code == 200
-            data = response.get_json()
-            assert data['success'] is True
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['success'] is True
 
-            # Verify post status changed
-            post = Post.query.get(post_id)
-            assert post.status == 'approved'
+        # Verify post status changed
+        post = Post.query.get(post_id)
+        assert post.status == 'approved'
 
     def test_update_post_status_reject(self, client):
         """Test rejecting a post"""
-        with app.app_context():
-            user = User.query.filter_by(role='user').first()
-            post = Post(
-                user_id=user.user_id,
-                content_text='Post to reject',
-                status='pending'
-            )
-            dbs.session.add(post)
-            dbs.session.commit()
-            post_id = post.post_id
+        user = User.query.filter_by(role='user').first()
+        post = Post(
+            user_id=user.user_id,
+            content_text='Post to reject',
+            status='pending'
+        )
+        dbs.session.add(post)
+        dbs.session.commit()
+        post_id = post.post_id
 
-            with client.session_transaction() as sess:
-                sess['user_id'] = 1
-                sess['role'] = 'manager'
+        with client.session_transaction() as sess:
+            sess['user_id'] = 1
+            sess['role'] = 'manager'
 
-            response = client.post('/update_post_status',
-                                   data=json.dumps({
-                                       'post_id': post_id,
-                                       'action': 'rejected'
-                                   }),
-                                   content_type='application/json')
+        response = client.post('/update_post_status',
+                               data=json.dumps({
+                                   'post_id': post_id,
+                                   'action': 'rejected'
+                               }),
+                               content_type='application/json')
 
-            assert response.status_code == 200
-            data = response.get_json()
-            assert data['success'] is True
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['success'] is True
 
-            # Verify post status changed
-            post = Post.query.get(post_id)
-            assert post.status == 'rejected'
+        # Verify post status changed
+        post = Post.query.get(post_id)
+        assert post.status == 'rejected'
 
     def test_invite_member_requires_manager(self, client):
         """Test inviting member requires manager role"""
@@ -208,10 +203,9 @@ class TestTeamCollaboration:
         assert 'temp_password' in data
 
         # Verify user was created
-        with app.app_context():
-            new_user = User.query.filter_by(email='newmember@test.com').first()
-            assert new_user is not None
-            assert new_user.full_name == 'New Member'
+        new_user = User.query.filter_by(email='newmember@test.com').first()
+        assert new_user is not None
+        assert new_user.full_name == 'New Member'
 
     def test_invite_member_duplicate_email(self, client):
         """Test inviting member with duplicate email fails"""
@@ -246,32 +240,31 @@ class TestTeamCollaboration:
 
     def test_notification_count_includes_pending_and_scheduled(self, client):
         """Test notification count includes both pending and scheduled posts"""
-        with app.app_context():
-            user = User.query.filter_by(role='user').first()
+        user = User.query.filter_by(role='user').first()
 
-            # Create pending post
-            pending_post = Post(
-                user_id=user.user_id,
-                content_text='Pending post',
-                status='pending'
-            )
-            dbs.session.add(pending_post)
+        # Create pending post
+        pending_post = Post(
+            user_id=user.user_id,
+            content_text='Pending post',
+            status='pending'
+        )
+        dbs.session.add(pending_post)
 
-            # Create scheduled post
-            scheduled_post = Post(
-                user_id=user.user_id,
-                content_text='Scheduled post',
-                status='scheduled'
-            )
-            dbs.session.add(scheduled_post)
-            dbs.session.commit()
+        # Create scheduled post
+        scheduled_post = Post(
+            user_id=user.user_id,
+            content_text='Scheduled post',
+            status='scheduled'
+        )
+        dbs.session.add(scheduled_post)
+        dbs.session.commit()
 
-            with client.session_transaction() as sess:
-                sess['user_id'] = 1
-                sess['role'] = 'manager'
-                sess['full_name'] = 'Test Manager'
+        with client.session_transaction() as sess:
+            sess['user_id'] = 1
+            sess['role'] = 'manager'
+            sess['full_name'] = 'Test Manager'
 
-            response = client.get('/team-collaboration')
-            assert response.status_code == 200
-            # Check that notification count is at least 2
-            assert b'notification-badge' in response.data
+        response = client.get('/team-collaboration')
+        assert response.status_code == 200
+        # Check that notification count is at least 2
+        assert b'notification-badge' in response.data

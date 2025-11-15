@@ -12,8 +12,7 @@ def client():
     app.config['WTF_CSRF_ENABLED'] = False
     
     with app.test_client() as client:
-        with app.app_context():
-            yield client
+        yield client
 
 
 class TestDashboardRoutes:
