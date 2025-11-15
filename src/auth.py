@@ -1,3 +1,4 @@
+"""Authentication module for user signup, login, and logout."""
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import text
@@ -18,6 +19,7 @@ def init_auth(user_model, database):
 
 @auth.route('/signup', methods=['GET', 'POST'])
 def signup():
+    """Handle user signup with form validation and database insertion."""
     if request.method == 'POST':
         full_name = request.form['full_name']
         email = request.form['email']
@@ -60,6 +62,7 @@ def signup():
 
 @auth.route('/login', methods=['GET', 'POST'])
 def login():
+    """Handle user login with email and password authentication."""
     if request.method == 'POST':
         email = request.form['email']
         password = request.form['password']
@@ -85,10 +88,8 @@ def login():
 
                     if user.role == 'manager':
                         return redirect(url_for('manager_dashboard'))
-                    else:
-                        return redirect(url_for('user_dashboard'))
-                else:
-                    flash("Invalid credentials. Try again.", "danger")
+                    return redirect(url_for('user_dashboard'))
+                flash("Invalid credentials. Try again.", "danger")
             else:
                 flash("Invalid credentials. Try again.", "danger")
         except Exception as e:
@@ -99,6 +100,7 @@ def login():
 
 @auth.route('/logout')
 def logout():
+    """Handle user logout by clearing session."""
     session.clear()
     flash("You've been logged out.", "info")
     return redirect(url_for('auth.login'))

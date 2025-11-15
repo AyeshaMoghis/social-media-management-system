@@ -1,3 +1,4 @@
+"""Application initialization and database configuration."""
 import os
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
@@ -5,10 +6,10 @@ from flask_sqlalchemy import SQLAlchemy
 app = Flask(__name__)
 
 # Base MySQL URI (fixed to use PyMySQL)
-default_mysql_uri = "mysql+pymysql://root:root@localhost/smms_db"
+DEFAULT_MYSQL_URI = "mysql+pymysql://root:root@localhost/smms_db"
 
 # Use DATABASE_URL if provided, else fallback to MySQL+pymysql
-database_uri = os.getenv("DATABASE_URL", default_mysql_uri)
+database_uri = os.getenv("DATABASE_URL", DEFAULT_MYSQL_URI)
 
 # Use SQLite for testing
 if os.getenv("TESTING") == "true":
