@@ -3,78 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SMMS - Post Scheduler</title>
+    <title>Post Scheduler - SMMS</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: #f5f7fa;
-            display: flex;
-            min-height: 100vh;
-        }
-
-        .sidebar {
-            width: 180px;
-            background: #1e293b;
-            color: white;
-            padding: 20px 0;
-            position: fixed;
-            height: 100vh;
-            left: 0;
-            top: 0;
-        }
-
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 0 20px 30px;
-            font-size: 18px;
-            font-weight: 600;
-        }
-
-        .logo-icon {
-            width: 32px;
-            height: 32px;
-            background: #06b6d4;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-        }
-
-        .nav-item {
-            padding: 12px 20px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            color: #94a3b8;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-size: 14px;
-        }
-
-        .nav-item:hover {
-            background: rgba(255,255,255,0.05);
-            color: white;
-        }
-
-        .nav-item.active {
-            background: #06b6d4;
-            color: white;
+            background: #f9fafb;
         }
 
         .main-content {
-            margin-left: 180px;
-            flex: 1;
-            padding: 30px 40px;
+            margin-left: 16rem;
+            padding: 2rem;
         }
 
         .header {
@@ -129,43 +68,55 @@
 
         .content-grid {
             display: grid;
-            grid-template-columns: 1fr 500px;
+            grid-template-columns: 1fr 650px;
             gap: 30px;
+            max-width: 1800px;
         }
 
         .create-post-card {
             background: white;
             border-radius: 12px;
-            padding: 25px;
+            padding: 30px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .create-post-card form {
+            width: 100%;
+            max-width: 550px;
         }
 
         .card-title {
-            font-size: 18px;
+            font-size: 1.25rem;
             font-weight: 600;
             color: #1e293b;
             margin-bottom: 20px;
+            width: 100%;
+            max-width: 550px;
+            text-align: center;
         }
 
         .form-group {
-            margin-bottom: 20px;
+            margin-bottom: 24px;
         }
 
         .form-label {
-            font-size: 14px;
+            font-size: 15px;
             font-weight: 500;
             color: #475569;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
             display: block;
         }
 
         .post-textarea {
             width: 100%;
-            min-height: 120px;
-            padding: 12px;
+            min-height: 150px;
+            padding: 14px;
             border: 1px solid #e2e8f0;
             border-radius: 8px;
-            font-size: 14px;
+            font-size: 15px;
             resize: vertical;
             font-family: inherit;
         }
@@ -177,15 +128,15 @@
 
         .char-count {
             text-align: right;
-            font-size: 12px;
+            font-size: 13px;
             color: #94a3b8;
-            margin-top: 5px;
+            margin-top: 6px;
         }
 
         .media-upload {
             border: 2px dashed #cbd5e1;
             border-radius: 8px;
-            padding: 40px;
+            padding: 50px 40px;
             text-align: center;
             cursor: pointer;
             transition: all 0.2s;
@@ -198,14 +149,14 @@
         }
 
         .media-upload i {
-            font-size: 32px;
+            font-size: 40px;
             color: #94a3b8;
-            margin-bottom: 10px;
+            margin-bottom: 12px;
         }
 
         .media-upload p {
             color: #64748b;
-            font-size: 14px;
+            font-size: 15px;
         }
 
         .media-preview {
@@ -240,31 +191,43 @@
 
         .platform-buttons {
             display: flex;
-            gap: 10px;
+            gap: 12px;
             flex-wrap: wrap;
         }
 
         .platform-btn {
-            padding: 10px 20px;
-            border: 1px solid #e2e8f0;
+            padding: 12px 24px;
+            border: 2px solid #e2e8f0;
             border-radius: 20px;
             background: white;
+            color: #334155;
             cursor: pointer;
             display: flex;
             align-items: center;
-            gap: 8px;
-            font-size: 14px;
+            gap: 10px;
+            font-size: 15px;
+            font-weight: 500;
             transition: all 0.2s;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
 
         .platform-btn:hover {
             border-color: #06b6d4;
+            background: #f0fdfa;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
 
         .platform-btn.active {
             background: #ec4899;
             color: white;
             border-color: #ec4899;
+            transform: scale(1.05);
+        }
+
+        .platform-btn.active.instagram {
+            background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+            border-color: #dc2743;
         }
 
         .platform-btn.active.facebook {
@@ -282,18 +245,39 @@
             border-color: #0a66c2;
         }
 
+        /* Platform-specific icons colors when not active */
+        .platform-btn.linkedin {
+            border-color: #0a66c2;
+            color: #0a66c2;
+        }
+
+        .platform-btn.facebook {
+            border-color: #1877f2;
+            color: #1877f2;
+        }
+
+        .platform-btn.instagram {
+            border-color: #e4405f;
+            color: #e4405f;
+        }
+
+        .platform-btn.x {
+            border-color: #000000;
+            color: #000000;
+        }
+
         .datetime-group {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 15px;
+            gap: 20px;
         }
 
         .input-field {
             width: 100%;
-            padding: 10px 12px;
+            padding: 12px 14px;
             border: 1px solid #e2e8f0;
             border-radius: 8px;
-            font-size: 14px;
+            font-size: 15px;
         }
 
         .input-field:focus {
@@ -303,16 +287,16 @@
 
         .action-buttons {
             display: flex;
-            gap: 10px;
-            margin-top: 25px;
+            gap: 12px;
+            margin-top: 30px;
         }
 
         .btn {
             flex: 1;
-            padding: 12px 20px;
+            padding: 14px 24px;
             border: none;
             border-radius: 8px;
-            font-size: 14px;
+            font-size: 15px;
             font-weight: 500;
             cursor: pointer;
             transition: all 0.2s;
@@ -582,50 +566,32 @@
     </style>
 </head>
 <body>
+    <!-- Sidebar -->
     <div class="sidebar">
-        <div class="logo">
-            <div class="logo-icon">S</div>
-            <span>SMMS</span>
+        <div>
+            <div class="sidebar-title">SMMS</div>
+            <nav>
+                <a href="{{ url_for('manager_dashboard') }}" class="nav-item">Dashboard</a>
+                <a href="{{ url_for('team_collaboration') }}" class="nav-item">Team Collaboration</a>
+                <a href="{{ url_for('post_scheduler') }}" class="nav-item active">Post Scheduler</a>
+                <a href="{{ url_for('linked_accounts') }}" class="nav-item">Linked Accounts</a>
+            </nav>
         </div>
-        <a href="/" style="text-decoration: none; color: inherit;">
-            <div class="nav-item">
-                <i class="fas fa-home"></i>
-                <span>Dashboard</span>
-            </div>
-        </a>
-        <a href="/post-scheduler" style="text-decoration: none; color: inherit;">
-            <div class="nav-item active">
-                <i class="fas fa-calendar-alt"></i>
-                <span>Post Scheduler</span>
-            </div>
-        </a>
-        <div class="nav-item">
-            <i class="fas fa-chart-line"></i>
-            <span>Analytics</span>
-        </div>
-        <div class="nav-item">
-            <i class="fas fa-users"></i>
-            <span>Team Collaboration</span>
-        </div>
-        <a href="/linked-accounts" style="text-decoration: none; color: inherit;">
-            <div class="nav-item">
-                <i class="fas fa-link"></i>
-                <span>Linked Accounts</span>
-            </div>
-        </a>
-        <div class="nav-item">
-            <i class="fas fa-bell"></i>
-            <span>Notifications</span>
-        </div>
-        <div class="nav-item">
-            <i class="fas fa-cog"></i>
-            <span>Settings</span>
+        <div>
+            <a href="{{ url_for('auth.logout') }}" class="logout">Logout</a>
         </div>
     </div>
 
     <div class="main-content">
         <div class="header">
-            <h1>Post Scheduler</h1>
+            <h1 style="font-size: 1.875rem; font-weight: 600; color: #111827;">Post Scheduler</h1>
+            <div class="user-info">
+                <div class="notification-bell">
+                    🔔<span class="notification-badge">{{ notification_count or 0 }}</span>
+                </div>
+                <div class="user-avatar">{{ user_initial }}</div>
+                <span style="font-weight: 500; color: #111827;">{{ session.full_name or user.full_name or 'Manager' }}</span>
+            </div>
         </div>
 
         <div class="content-grid">
@@ -664,31 +630,38 @@
               <div class="form-group">
   <label class="form-label">Select Platforms</label>
   <div class="platform-buttons">
-    {% for account in accounts %}
-      {% set pname = account.platform_name or 'Unknown' %}
-      {% if pname|lower == 'instagram' %}
-        <button type="button" class="platform-btn" data-account-id="{{ account.account_id }}">
-          <i class="fab fa-instagram"></i> Instagram
-        </button>
-      {% elif pname|lower == 'facebook' %}
-        <button type="button" class="platform-btn" data-account-id="{{ account.account_id }}">
-          <i class="fab fa-facebook"></i> Facebook
-        </button>
-      {% elif pname|lower in ['x', 'twitter'] %}
-        <button type="button" class="platform-btn" data-account-id="{{ account.account_id }}">
-          <i class="fab fa-x-twitter"></i> X
-        </button>
-      {% elif pname|lower == 'linkedin' %}
-        <button type="button" class="platform-btn" data-account-id="{{ account.account_id }}">
-          <i class="fab fa-linkedin"></i> LinkedIn
-        </button>
-      {% else %}
-        <!-- Generic button for any other linked account -->
-        <button type="button" class="platform-btn" data-account-id="{{ account.account_id }}">
-          {{ account.platform_name }} {{ account.account_username and '(' ~ account.account_username ~ ')' or '' }}
-        </button>
-      {% endif %}
-    {% endfor %}
+    {% if accounts and accounts|length > 0 %}
+      {% for account in accounts %}
+        {% set pname = account.platform_name or 'Unknown' %}
+        {% if pname|lower == 'instagram' %}
+          <button type="button" class="platform-btn instagram" data-account-id="{{ account.account_id }}">
+            <i class="fab fa-instagram"></i> Instagram
+          </button>
+        {% elif pname|lower == 'facebook' %}
+          <button type="button" class="platform-btn facebook" data-account-id="{{ account.account_id }}">
+            <i class="fab fa-facebook"></i> Facebook
+          </button>
+        {% elif pname|lower in ['x', 'twitter'] %}
+          <button type="button" class="platform-btn x" data-account-id="{{ account.account_id }}">
+            <i class="fab fa-x-twitter"></i> X
+          </button>
+        {% elif pname|lower == 'linkedin' %}
+          <button type="button" class="platform-btn linkedin" data-account-id="{{ account.account_id }}">
+            <i class="fab fa-linkedin"></i> LinkedIn
+          </button>
+        {% else %}
+          <!-- Generic button for any other linked account -->
+          <button type="button" class="platform-btn" data-account-id="{{ account.account_id }}">
+            <i class="fas fa-globe"></i> {{ account.platform_name }}{% if account.account_username %} ({{ account.account_username }}){% endif %}
+          </button>
+        {% endif %}
+      {% endfor %}
+    {% else %}
+      <div style="padding: 1rem; background-color: #fef3c7; border: 1px solid #fbbf24; border-radius: 8px; text-align: center;">
+        <i class="fas fa-exclamation-triangle" style="color: #f59e0b; margin-right: 8px;"></i>
+        <span style="color: #92400e;">No social media accounts linked. <a href="/linked-accounts" style="color: #0891b2; text-decoration: underline;">Link an account</a> to start posting.</span>
+      </div>
+    {% endif %}
   </div>
 </div>
 
@@ -784,6 +757,45 @@ function removeMedia() {
 // Platform selection
 // =======================
 document.addEventListener('DOMContentLoaded', () => {
+  // Initialize date and time inputs
+  const postDateInput = document.getElementById('postDate');
+  const postTimeInput = document.getElementById('postTime');
+  
+  // Set default date to today
+  const now = new Date();
+  const today = now.toISOString().split('T')[0];
+  postDateInput.value = today;
+  postDateInput.min = today; // Prevent selecting past dates
+  
+  // Leave time blank - user will select their own time
+  postTimeInput.value = '';
+  
+  // Add event listener to validate time when input loses focus (not during typing)
+  postDateInput.addEventListener('blur', function() {
+    validateDateTime();
+  });
+  
+  postTimeInput.addEventListener('blur', function() {
+    validateDateTime();
+  });
+  
+  function validateDateTime() {
+    const selectedDate = postDateInput.value;
+    const selectedTime = postTimeInput.value;
+    
+    if (!selectedDate || !selectedTime) return;
+    
+    const selectedDateTime = new Date(`${selectedDate}T${selectedTime}`);
+    const currentDateTime = new Date();
+    
+    // If selected time is in the past, show error and clear the time
+    if (selectedDateTime <= currentDateTime) {
+      postTimeInput.value = ''; // Clear the time field
+      showNotification('Cannot schedule in the past. Please select a future time.', 'error');
+    }
+  }
+  
+  // Platform button selection
   document.querySelectorAll('.platform-btn').forEach(btn => {
     btn.addEventListener('click', function() {
       const accId = this.getAttribute('data-account-id');
@@ -818,10 +830,28 @@ document.getElementById('postNowBtn').addEventListener('click', () => savePost('
 document.getElementById('scheduleBtn').addEventListener('click', () => {
   const date = document.getElementById('postDate').value;
   const time = document.getElementById('postTime').value;
+  
   if (!date || !time) {
     showNotification('Please select date and time for scheduling', 'error');
     return;
   }
+  
+  // Validate that scheduled time is not in the past
+  const scheduledDateTime = new Date(`${date}T${time}`);
+  const currentDateTime = new Date();
+  
+  if (scheduledDateTime < currentDateTime) {
+    showNotification('Cannot schedule a post in the past. Please select a future date and time.', 'error');
+    return;
+  }
+  
+  // Check if scheduled time is too soon (less than 1 minute from now)
+  const timeDiff = scheduledDateTime - currentDateTime;
+  if (timeDiff < 60000) { // 60000 ms = 1 minute
+    showNotification('Please schedule at least 1 minute in the future.', 'error');
+    return;
+  }
+  
   savePost('scheduled');
 });
 

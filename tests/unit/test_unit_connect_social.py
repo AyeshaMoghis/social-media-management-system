@@ -26,27 +26,25 @@ class TestUserModel:
     
     def test_user_creation(self):
         """Test user can be created with valid email"""
-        with app.app_context():
-            user = User(email="user_creation_test@example.com")
-            dbs.session.add(user)
-            dbs.session.commit()
+        user = User(email="user_creation_test@example.com")
+        dbs.session.add(user)
+        dbs.session.commit()
             
-            assert user.user_id is not None
-            assert user.email == "user_creation_test@example.com"
-            assert isinstance(user.created_at, datetime)
+        assert user.user_id is not None
+        assert user.email == "user_creation_test@example.com"
+        assert isinstance(user.created_at, datetime)
     
     def test_user_email_unique_constraint(self):
         """Test user email must be unique"""
-        with app.app_context():
-            user1 = User(email="unique_constraint_test@example.com")
-            dbs.session.add(user1)
+        user1 = User(email="unique_constraint_test@example.com")
+        dbs.session.add(user1)
+        dbs.session.commit()
+            
+        user2 = User(email="unique_constraint_test@example.com")
+        dbs.session.add(user2)
+            
+        with pytest.raises(Exception):
             dbs.session.commit()
-            
-            user2 = User(email="unique_constraint_test@example.com")
-            dbs.session.add(user2)
-            
-            with pytest.raises(Exception):
-                dbs.session.commit()
     
     def test_current_user_creates_default_user(self, client):
         """Test current_user returns None when no session"""
@@ -66,27 +64,25 @@ class TestPlatformModel:
     
     def test_platform_creation(self):
         """Test platform can be created"""
-        with app.app_context():
-            platform = Platform(
-                platform_name="Twitter",
-                api_endpoint="https://api.twitter.com/2",
-                is_active=True
-            )
-            dbs.session.add(platform)
-            dbs.session.commit()
+        platform = Platform(
+            platform_name="Twitter",
+            api_endpoint="https://api.twitter.com/2",
+            is_active=True
+        )
+        dbs.session.add(platform)
+        dbs.session.commit()
             
-            assert platform.platform_id is not None
-            assert platform.platform_name == "Twitter"
-            assert platform.is_active is True
+        assert platform.platform_id is not None
+        assert platform.platform_name == "Twitter"
+        assert platform.is_active is True
     
     def test_platform_default_active_status(self):
         """Test platform is active by default"""
-        with app.app_context():
-            platform = Platform(platform_name="LinkedIn")
-            dbs.session.add(platform)
-            dbs.session.commit()
+        platform = Platform(platform_name="LinkedIn")
+        dbs.session.add(platform)
+        dbs.session.commit()
             
-            assert platform.is_active is True
+        assert platform.is_active is True
 
 
 @pytest.mark.unit
@@ -95,48 +91,46 @@ class TestLinkedAccountModel:
     
     def test_linked_account_creation(self):
         """Test linked account can be created"""
-        with app.app_context():
-            user = User(email="linked_account_creation@example.com")
-            platform = Platform(platform_name="Twitter")
-            dbs.session.add(user)
-            dbs.session.add(platform)
-            dbs.session.commit()
+        user = User(email="linked_account_creation@example.com")
+        platform = Platform(platform_name="Twitter")
+        dbs.session.add(user)
+        dbs.session.add(platform)
+        dbs.session.commit()
             
-            account = LinkedAccount(
-                user_id=user.user_id,
-                platform_id=platform.platform_id,
-                access_token="test_token",
-                account_username="@testuser",
-                follower_count=100,
-                post_count=50
-            )
-            dbs.session.add(account)
-            dbs.session.commit()
+        account = LinkedAccount(
+            user_id=user.user_id,
+            platform_id=platform.platform_id,
+            access_token="test_token",
+            account_username="@testuser",
+            follower_count=100,
+            post_count=50
+        )
+        dbs.session.add(account)
+        dbs.session.commit()
             
-            assert account.account_id is not None
-            assert account.access_token == "test_token"
-            assert account.follower_count == 100
+        assert account.account_id is not None
+        assert account.access_token == "test_token"
+        assert account.follower_count == 100
     
     def test_linked_account_default_values(self):
         """Test linked account has correct default values"""
-        with app.app_context():
-            user = User(email="linked_account_defaults@example.com")
-            platform = Platform(platform_name="Twitter")
-            dbs.session.add(user)
-            dbs.session.add(platform)
-            dbs.session.commit()
+        user = User(email="linked_account_defaults@example.com")
+        platform = Platform(platform_name="Twitter")
+        dbs.session.add(user)
+        dbs.session.add(platform)
+        dbs.session.commit()
             
-            account = LinkedAccount(
-                user_id=user.user_id,
-                platform_id=platform.platform_id
-            )
-            dbs.session.add(account)
-            dbs.session.commit()
+        account = LinkedAccount(
+            user_id=user.user_id,
+            platform_id=platform.platform_id
+        )
+        dbs.session.add(account)
+        dbs.session.commit()
             
-            assert account.follower_count == 0
-            assert account.post_count == 0
-            assert isinstance(account.linked_at, datetime)
-            assert isinstance(account.last_synced, datetime)
+        assert account.follower_count == 0
+        assert account.post_count == 0
+        assert isinstance(account.linked_at, datetime)
+        assert isinstance(account.last_synced, datetime)
 
 
 @pytest.mark.unit
@@ -145,44 +139,42 @@ class TestOAuthStateModel:
     
     def test_oauth_state_creation(self):
         """Test OAuth state can be created"""
-        with app.app_context():
-            state = OAuthState(
-                state_id="test_state_123_unit",
-                user_id=1,
-                platform="twitter",
-                code_verifier="test_verifier"
-            )
-            dbs.session.add(state)
-            dbs.session.commit()
+        state = OAuthState(
+            state_id="test_state_123_unit",
+            user_id=1,
+            platform="twitter",
+            code_verifier="test_verifier"
+        )
+        dbs.session.add(state)
+        dbs.session.commit()
             
-            retrieved = dbs.session.get(OAuthState, "test_state_123_unit")
-            assert retrieved is not None
-            assert retrieved.platform == "twitter"
+        retrieved = dbs.session.get(OAuthState, "test_state_123_unit")
+        assert retrieved is not None
+        assert retrieved.platform == "twitter"
     
     def test_cleanup_old_oauth_states(self):
         """Test cleanup removes old OAuth states"""
-        with app.app_context():
-            old_state = OAuthState(
-                state_id="old_state_unit",
-                user_id=1,
-                platform="twitter",
-                created_at=datetime.utcnow() - timedelta(minutes=15)
-            )
+        old_state = OAuthState(
+            state_id="old_state_unit",
+            user_id=1,
+            platform="twitter",
+            created_at=datetime.utcnow() - timedelta(minutes=15)
+        )
             
-            new_state = OAuthState(
-                state_id="new_state_unit",
-                user_id=1,
-                platform="twitter"
-            )
+        new_state = OAuthState(
+            state_id="new_state_unit",
+            user_id=1,
+            platform="twitter"
+        )
             
-            dbs.session.add(old_state)
-            dbs.session.add(new_state)
-            dbs.session.commit()
+        dbs.session.add(old_state)
+        dbs.session.add(new_state)
+        dbs.session.commit()
             
-            cleanup_old_oauth_states()
+        cleanup_old_oauth_states()
             
-            assert dbs.session.get(OAuthState, "old_state_unit") is None
-            assert dbs.session.get(OAuthState, "new_state_unit") is not None
+        assert dbs.session.get(OAuthState, "old_state_unit") is None
+        assert dbs.session.get(OAuthState, "new_state_unit") is not None
 
 
 @pytest.mark.unit
@@ -199,11 +191,10 @@ class TestTwitterOAuthFlow:
             sess['role'] = 'user'
         
         # Need to create a user first
-        with app.app_context():
-            user = User(email="twitter_test@example.com", full_name="Test User", role="user")
-            dbs.session.add(user)
-            dbs.session.commit()
-            user_id = user.user_id
+        user = User(email="twitter_test@example.com", full_name="Test User", role="user")
+        dbs.session.add(user)
+        dbs.session.commit()
+        user_id = user.user_id
         
         with client.session_transaction() as sess:
             sess['user_id'] = user_id
@@ -212,10 +203,9 @@ class TestTwitterOAuthFlow:
         
         response = client.get('/connect/twitter')
         
-        with app.app_context():
-            platform = Platform.query.filter_by(platform_name='Twitter').first()
-            assert platform is not None
-            assert platform.api_endpoint == 'https://api.twitter.com/2'
+        platform = Platform.query.filter_by(platform_name='Twitter').first()
+        assert platform is not None
+        assert platform.api_endpoint == 'https://api.twitter.com/2'
 
 
 @pytest.mark.unit
@@ -226,11 +216,10 @@ class TestLinkedInOAuthFlow:
     def test_linkedin_connect_creates_platform(self, client):
         """Test connecting to LinkedIn creates platform if not exists"""
         # Create user first
-        with app.app_context():
-            user = User(email="linkedin_test@example.com", full_name="Test User", role="user")
-            dbs.session.add(user)
-            dbs.session.commit()
-            user_id = user.user_id
+        user = User(email="linkedin_test@example.com", full_name="Test User", role="user")
+        dbs.session.add(user)
+        dbs.session.commit()
+        user_id = user.user_id
         
         # Create authenticated session
         with client.session_transaction() as sess:
@@ -240,20 +229,18 @@ class TestLinkedInOAuthFlow:
         
         response = client.get('/connect/linkedin')
         
-        with app.app_context():
-            platform = Platform.query.filter_by(platform_name='LinkedIn').first()
-            assert platform is not None
-            # Check that api_endpoint contains the base URL
-            assert platform.api_endpoint.startswith('https://api.linkedin.com')
+        platform = Platform.query.filter_by(platform_name='LinkedIn').first()
+        assert platform is not None
+        # Check that api_endpoint contains the base URL
+        assert platform.api_endpoint.startswith('https://api.linkedin.com')
     
     def test_linkedin_connect_generates_state(self, client):
         """Test LinkedIn connection generates OAuth state"""
         # Create user first
-        with app.app_context():
-            user = User(email="linkedin_state_test@example.com", full_name="Test User", role="user")
-            dbs.session.add(user)
-            dbs.session.commit()
-            user_id = user.user_id
+        user = User(email="linkedin_state_test@example.com", full_name="Test User", role="user")
+        dbs.session.add(user)
+        dbs.session.commit()
+        user_id = user.user_id
         
         # Create authenticated session
         with client.session_transaction() as sess:
@@ -263,18 +250,16 @@ class TestLinkedInOAuthFlow:
         
         response = client.get('/connect/linkedin')
         
-        with app.app_context():
-            states = OAuthState.query.filter_by(platform='linkedin', user_id=user_id).all()
-            assert len(states) > 0
+        states = OAuthState.query.filter_by(platform='linkedin', user_id=user_id).all()
+        assert len(states) > 0
     
     def test_linkedin_connect_redirects_to_linkedin(self, client):
         """Test LinkedIn connection redirects to LinkedIn OAuth"""
         # Create user first
-        with app.app_context():
-            user = User(email="linkedin_redirect_test@example.com", full_name="Test User", role="user")
-            dbs.session.add(user)
-            dbs.session.commit()
-            user_id = user.user_id
+        user = User(email="linkedin_redirect_test@example.com", full_name="Test User", role="user")
+        dbs.session.add(user)
+        dbs.session.commit()
+        user_id = user.user_id
         
         # Create authenticated session
         with client.session_transaction() as sess:
@@ -288,6 +273,64 @@ class TestLinkedInOAuthFlow:
         assert 'linkedin.com' in response.location
         assert 'oauth/v2/authorization' in response.location
     
+    @patch('requests.get')
+    @patch('requests.post')
+    def test_linkedin_callback_success(self, mock_post, mock_get, client):
+        """Test successful LinkedIn OAuth callback"""
+        user = User(email="linkedin_callback_test@example.com")
+        dbs.session.add(user)
+        dbs.session.commit()
+            
+        platform = Platform(platform_name="LinkedIn")
+        dbs.session.add(platform)
+        dbs.session.commit()
+            
+        state = OAuthState(
+            state_id="test_state_linkedin",
+            user_id=user.user_id,
+            platform="linkedin"
+        )
+        dbs.session.add(state)
+        dbs.session.commit()
+            
+        user_id = user.user_id
+        
+        # Mock ID token
+        id_token_payload = {
+            "name": "Test User",
+            "email": "linkedin_callback_test@example.com"
+        }
+        encoded_payload = base64.urlsafe_b64encode(
+            json.dumps(id_token_payload).encode()
+        ).decode()
+        fake_id_token = f"header.{encoded_payload}.signature"
+        
+        # Mock token exchange
+        mock_post.return_value.status_code = 200
+        mock_post.return_value.json.return_value = {
+            "access_token": "test_access_token",
+            "id_token": fake_id_token
+        }
+        
+        # Mock profile fetch
+        mock_get.return_value.status_code = 200
+        mock_get.return_value.json.return_value = {
+            "sub": "test_linkedin_id",
+            "name": "Test User",
+            "email": "linkedin_callback_test@example.com"
+        }
+        
+        # Execute callback
+        response = client.get(
+            '/callback/linkedin?code=test_code&state=test_state_linkedin',
+            follow_redirects=False
+        )
+        
+        # Verify
+        assert response.status_code == 302
+        account = LinkedAccount.query.filter_by(user_id=user_id).first()
+        assert account is not None
+        assert account.access_token == "test_access_token"
     
     def test_linkedin_callback_missing_parameters(self, client):
         """Test LinkedIn callback fails without required parameters"""
@@ -303,24 +346,23 @@ class TestAccountManagement:
     
     def test_disconnect_account(self, client):
         """Test disconnecting an account"""
-        with app.app_context():
-            user = User(email="disconnect_unit_test@example.com")
-            platform = Platform(platform_name="Twitter")
-            dbs.session.add(user)
-            dbs.session.add(platform)
-            dbs.session.commit()
+        user = User(email="disconnect_unit_test@example.com")
+        platform = Platform(platform_name="Twitter")
+        dbs.session.add(user)
+        dbs.session.add(platform)
+        dbs.session.commit()
             
-            account = LinkedAccount(
-                user_id=user.user_id,
-                platform_id=platform.platform_id,
-                access_token="test_token",
-                account_username="@testuser"
-            )
-            dbs.session.add(account)
-            dbs.session.commit()
+        account = LinkedAccount(
+            user_id=user.user_id,
+            platform_id=platform.platform_id,
+            access_token="test_token",
+            account_username="@testuser"
+        )
+        dbs.session.add(account)
+        dbs.session.commit()
             
-            account_id = account.account_id
-            user_id = user.user_id
+        account_id = account.account_id
+        user_id = user.user_id
         
         with client.session_transaction() as sess:
             sess['user_id'] = user_id
@@ -331,32 +373,30 @@ class TestAccountManagement:
         )
         
         assert response.status_code == 302
-        with app.app_context():
-            assert dbs.session.get(LinkedAccount, account_id) is None
+        assert dbs.session.get(LinkedAccount, account_id) is None
     
     @patch('requests.get')
     def test_refresh_twitter_account(self, mock_get, client):
         """Test refreshing Twitter account data"""
-        with app.app_context():
-            user = User(email="refresh_unit_test@example.com")
-            platform = Platform(platform_name="Twitter")
-            dbs.session.add(user)
-            dbs.session.add(platform)
-            dbs.session.commit()
+        user = User(email="refresh_unit_test@example.com")
+        platform = Platform(platform_name="Twitter")
+        dbs.session.add(user)
+        dbs.session.add(platform)
+        dbs.session.commit()
             
-            account = LinkedAccount(
-                user_id=user.user_id,
-                platform_id=platform.platform_id,
-                access_token="test_token",
-                account_username="@testuser",
-                follower_count=1000,
-                post_count=500
-            )
-            dbs.session.add(account)
-            dbs.session.commit()
+        account = LinkedAccount(
+            user_id=user.user_id,
+            platform_id=platform.platform_id,
+            access_token="test_token",
+            account_username="@testuser",
+            follower_count=1000,
+            post_count=500
+        )
+        dbs.session.add(account)
+        dbs.session.commit()
             
-            account_id = account.account_id
-            user_id = user.user_id
+        account_id = account.account_id
+        user_id = user.user_id
         
         with client.session_transaction() as sess:
             sess['user_id'] = user_id
@@ -380,10 +420,9 @@ class TestAccountManagement:
         )
         
         assert response.status_code == 302
-        with app.app_context():
-            updated_account = dbs.session.get(LinkedAccount, account_id)
-            assert updated_account.follower_count == 2000
-            assert updated_account.post_count == 1000
+        updated_account = dbs.session.get(LinkedAccount, account_id)
+        assert updated_account.follower_count == 2000
+        assert updated_account.post_count == 1000
 
 
 if __name__ == '__main__':

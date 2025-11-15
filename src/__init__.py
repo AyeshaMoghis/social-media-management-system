@@ -1,11 +1,17 @@
+"""Application initialization and database configuration."""
 import os
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
 
-# Dynamically use SQLite if in TESTING mode
-database_uri = os.getenv("DATABASE_URL", "mysql+pymysql://root:root@localhost/smms_db")
+# Base MySQL URI (fixed to use PyMySQL)
+DEFAULT_MYSQL_URI = "mysql+pymysql://root:root@localhost/smms_db"
+
+# Use DATABASE_URL if provided, else fallback to MySQL+pymysql
+database_uri = os.getenv("DATABASE_URL", DEFAULT_MYSQL_URI)
+
+# Use SQLite for testing
 if os.getenv("TESTING") == "true":
     database_uri = "sqlite:///:memory:"
 

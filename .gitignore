@@ -2,20 +2,53 @@
 __pycache__/
 *.pyc
 *.pyo
+*.pyd
 
 # Virtual environments
 venv/
 .venv/
-.env/
+env/
+ENV/
+
+# Environment variables
+.env
+.env.local
+.env.test
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+.hypothesis/
+coverage_reports/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Uploads
+uploads/*
+!uploads/.gitkeep
 
 # Reports and artifacts
 reports/
 deployment/
-.coverage
-htmlcov/
 *.zip
 
 # IDE and system files
 .DS_Store
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+
+# OS files
+Thumbs.db
+desktop.ini
