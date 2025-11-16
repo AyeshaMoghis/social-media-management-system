@@ -2,6 +2,10 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import text
+from authlib.integrations.flask_client import OAuth
+from dotenv import load_dotenv
+import os
+from src import oauth
 
 auth = Blueprint('auth', __name__, template_folder='templates')
 
@@ -104,3 +108,49 @@ def logout():
     session.clear()
     flash("You've been logged out.", "info")
     return redirect(url_for('auth.login'))
+
+# -------------------------
+# GOOGLE SIGN-IN ROUTES
+# -------------------------
+
+@auth.route('/login/google')
+def login_google():
+    redirect_uri = url_for('auth.google_callback', _external=True)
+    return oauth.google.authorize_redirect(redirect_uri)
+
+
+@auth.route('/google/callback')
+def google_callback():
+    token = oauth.google.authorize_access_token()
+    user_info = oauth.google.get('userinfo').json()
+
+    email = user_info['email']
+    full_name = user_info['name']
+
+    # Check for existing user
+    existing_user = User.query.filter_by(email=email).first()
+
+    if not existing_user:
+        # Create user with random password
+        query = text("""
+            INSERT INTO user (email, password_hash, full_name, role)
+            VALUES (:email, :password_hash, :full_name, :role)
+        """)
+        dbs.session.execute(query, {
+            'email': email,
+            'password_hash': generate_password_hash(os.urandom(16).hex()),
+            'full_name': full_name,
+            'role': 'user'
+        })
+        dbs.session.commit()
+        existing_user = User.query.filter_by(email=email).first()
+
+    # Log user in
+    session['user_id'] = existing_user.user_id
+    session['full_name'] = existing_user.full_name
+    session['role'] = existing_user.role
+    flash("Logged in with Google!", "success")
+
+    if existing_user.role == "manager":
+        return redirect(url_for('manager_dashboard'))
+    return redirect(url_for('user_dashboard'))
