@@ -15,6 +15,7 @@ from urllib.parse import urlencode
 # Third-party imports
 from flask import Flask, render_template, redirect, url_for, session, request, flash, jsonify, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
+from flask_mail import Mail
 from dotenv import load_dotenv
 import requests
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -2395,6 +2396,17 @@ atexit.register(lambda: scheduler.shutdown())
 
 print(" Background scheduler started - checking every 30 seconds")
 
+# ---------------------------
+# EMAIL CONFIG
+# ---------------------------
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = os.getenv('EMAIL_USER')
+app.config['MAIL_PASSWORD'] = os.getenv('EMAIL_PASS')
+app.config['MAIL_DEFAULT_SENDER'] = os.getenv('EMAIL_FROM')
+
+mail = Mail(app)
 
 # ---------------------------
 # RUN SERVER

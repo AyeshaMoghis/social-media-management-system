@@ -584,6 +584,7 @@ button {
   background-color: #f3f4f6;
 }
 
+<<<<<<< HEAD
 /* Google Login Button */
 .google-btn {
   display: flex;
@@ -612,4 +613,86 @@ button {
   height: 20px;
 }
 
+=======
+.password-wrapper {
+  position: relative;
+  width: 100%;
+}
+>>>>>>> b59e527 (added the forgot password feature: email otp)
 
+.toggle-eye {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+}
+
+.strength-bar {
+  height: 6px;
+  width: 100%;
+  border-radius: 5px;
+  background: #ccc;
+  margin-top: 5px;
+}
+
+/* ================================
+   FLASH MESSAGES — TOAST STYLE
+================================ */
+
+/* Container for toasts */
+.toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Toast box */
+.toast {
+  padding: 14px 18px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  min-width: 260px;
+  color: white;
+  opacity: 0;
+  transform: translateY(-20px);
+  animation: slideFadeIn 0.4s forwards, fadeOut 0.5s forwards 2.8s;
+}
+
+/* Toast types */
+.toast-success {
+  background: #10b981;
+}
+
+.toast-danger {
+  background: #ef4444;
+}
+
+.toast-info {
+  background: #3b82f6;
+}
+
+/* Slide + fade animation */
+@keyframes slideFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0px);
+  }
+}
+
+/* Auto fade-out */
+@keyframes fadeOut {
+  to {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
