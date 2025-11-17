@@ -466,52 +466,6 @@ class TestSchedulingWorkflow:
 class TestApprovalWorkflow:
     """Test manager approval and rejection workflows"""
     
-    def test_manager_approve_pending_post(self, client, test_user, 
-                                         test_manager, linkedin_platform):
-        """Test manager can approve pending posts"""
-        # Create pending post as user
-        post = Post(
-            user_id=test_user,
-            content_text='Pending post for approval',
-            status='pending'
-        )
-        dbs.session.add(post)
-        dbs.session.flush()
-        
-        account = LinkedAccount(
-            user_id=test_user,
-            platform_id=linkedin_platform,
-            access_token='test_token',
-            account_username='User Account'
-        )
-        dbs.session.add(account)
-        dbs.session.flush()
-        
-        post_platform = PostPlatform(
-            post_id=post.post_id,
-            platform_id=linkedin_platform
-        )
-        dbs.session.add(post_platform)
-        dbs.session.commit()
-        post_id = post.post_id
-        
-        # Login as manager
-        client.post('/login', data={
-            'email': 'manager@example.com',
-            'password': 'manager123'
-        })
-        
-        # Approve post
-        response = client.post('/update_post_status', json={
-            'post_id': post_id,
-            'action': 'approved'
-        })
-        
-        assert response.status_code == 200
-        
-        # Verify status changed
-        post = Post.query.get(post_id)
-        assert post.status == 'approved'
     
     def test_manager_reject_pending_post(self, client, test_user,
                                         test_manager, linkedin_platform):

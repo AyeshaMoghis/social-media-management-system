@@ -1,12 +1,14 @@
 """Authentication module for user signup, login, logout, Google OAuth and forgot-password (OTP)."""
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app
-from werkzeug.security import generate_password_hash, check_password_hash
-from sqlalchemy import text
-from authlib.integrations.flask_client import OAuth
-from dotenv import load_dotenv
 import os
 import random
 import time
+
+from flask import (
+    Blueprint, render_template, request, redirect, url_for,
+    flash, session, current_app
+)
+from werkzeug.security import generate_password_hash, check_password_hash
+from sqlalchemy import text
 from flask_mail import Message
 from src import oauth  # your OAuth client configured in src/oauth.py (keep as-is)
 
@@ -25,6 +27,7 @@ def init_auth(user_model, database):
 
 @auth.route('/signup', methods=['GET', 'POST'])
 def signup():
+    """Handle user signup."""
     if request.method == 'POST':
         full_name = request.form['full_name']
         email = request.form['email']
@@ -64,6 +67,7 @@ def signup():
 
 @auth.route('/login', methods=['GET', 'POST'])
 def login():
+    """Handle user login."""
     if request.method == 'POST':
         email = request.form['email']
         password = request.form['password']
@@ -96,6 +100,7 @@ def login():
 
 @auth.route('/logout')
 def logout():
+    """Handle user logout."""
     session.clear()
     flash("You've been logged out.", "info")
     return redirect(url_for('auth.login'))
@@ -107,6 +112,7 @@ def logout():
 # -------------------------
 @auth.route('/login/google')
 def login_google():
+    """Initiate Google OAuth login."""
     # redirect back to /google/callback
     redirect_uri = url_for('auth.google_callback', _external=True)
     return oauth.google.authorize_redirect(redirect_uri)
@@ -114,8 +120,9 @@ def login_google():
 
 @auth.route('/google/callback')
 def google_callback():
+    """Handle Google OAuth callback."""
     # exchange token and fetch userinfo
-    token = oauth.google.authorize_access_token()
+    oauth.google.authorize_access_token()
     user_info = oauth.google.get('userinfo').json()
 
     email = user_info.get('email')
@@ -157,6 +164,7 @@ def google_callback():
 # -------------------------
 @auth.route('/forgot-password', methods=['GET', 'POST'])
 def forgot_password():
+    """Handle forgot password request and send OTP."""
     # cooldown: 60 seconds between OTPs
     last_time = session.get("otp_last_time")
     if last_time and time.time() - last_time < 60:
@@ -192,6 +200,7 @@ def forgot_password():
 
 @auth.route('/verify-otp', methods=['GET', 'POST'])
 def verify_otp():
+    """Verify OTP for password reset."""
     if request.method == 'POST':
         session['otp_attempts'] = session.get('otp_attempts', 0) + 1
         if session['otp_attempts'] > 5:
@@ -212,6 +221,7 @@ def verify_otp():
 
 @auth.route('/reset-password', methods=['GET', 'POST'])
 def reset_password():
+    """Handle password reset."""
     if request.method == 'POST':
         new_pw = request.form['password']
         email = session.get('reset_email')
