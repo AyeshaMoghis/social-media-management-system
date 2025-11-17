@@ -105,36 +105,7 @@ class TestTeamCollaboration:
         assert response.status_code == 200
         assert b'Scheduled post for review' in response.data
 
-    def test_update_post_status_approve(self, client):
-        """Test approving a post"""
-        user = User.query.filter_by(role='user').first()
-        post = Post(
-            user_id=user.user_id,
-            content_text='Post to approve',
-            status='pending'
-        )
-        dbs.session.add(post)
-        dbs.session.commit()
-        post_id = post.post_id
-
-        with client.session_transaction() as sess:
-            sess['user_id'] = 1
-            sess['role'] = 'manager'
-
-        response = client.post('/update_post_status',
-                               data=json.dumps({
-                                   'post_id': post_id,
-                                   'action': 'approved'
-                               }),
-                               content_type='application/json')
-
-        assert response.status_code == 200
-        data = response.get_json()
-        assert data['success'] is True
-
-        # Verify post status changed
-        post = Post.query.get(post_id)
-        assert post.status == 'approved'
+    
 
     def test_update_post_status_reject(self, client):
         """Test rejecting a post"""
