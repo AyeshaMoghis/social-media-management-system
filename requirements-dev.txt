@@ -1,0 +1,29 @@
+# Testing Framework
+pytest
+pytest-cov
+pytest-mock
+pytest-flask
+
+# Code Coverage
+coverage==7.3.2
+
+# Code Quality & Linting
+pylint
+flake8
+black
+isort
+mypy
+
+# Security Scanning
+bandit
+safety
+pip-audit
+
+# Additional Testing Utilities
+faker
+factory-boy
+responses
+
+# Development Tools
+ipython
+ipdb

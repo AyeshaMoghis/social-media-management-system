@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Sign Up | SMMS</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+
+<body>
+  <div class="container">
+    
+    <!-- Left Info Panel -->
+    <div class="left-panel">
+      <h1>Grow your brand<br>and manage content<br>smarter ✨</h1>
+      <p>Join SMMS to plan, publish, and analyze all your social media activity in one place.</p>
+    </div>
+
+    <!-- Right Signup Form -->
+    <div class="right-panel">
+      
+      <!-- ✅ Flash Messages -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="flash-messages">
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      <form method="POST" action="{{ url_for('auth.signup') }}">
+        <h2>Create Your Account</h2>
+
+        <input type="text" name="full_name" placeholder="Full Name" required>
+        <input type="email" name="email" placeholder="you@example.com" required>
+        <input type="password" name="password" placeholder="Create a password" required>
+
+        <label for="role" style="display:block; margin-top:10px; text-align:left;">Sign up as:</label>
+        <select name="role" id="role" required style="width:100%; padding:10px; margin-top:5px; border-radius:5px; border:1px solid #ccc;">
+          <option value="user">User</option>
+          <option value="manager">Manager</option>
+        </select>
+
+        <button type="submit" style="margin-top:15px;">Create Account</button>
+
+        <p>Already have an account? 
+          <a href="{{ url_for('auth.login') }}">Login here</a>
+        </p>
+      </form>
+    </div>
+  </div>
+</body>
+</html>

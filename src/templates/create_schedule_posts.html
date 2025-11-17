@@ -1,0 +1,1155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Post Scheduler - SMMS</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: #f9fafb;
+        }
+
+        .main-content {
+            margin-left: 16rem;
+            padding: 2rem;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            color: #1e293b;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .notification-icon {
+            position: relative;
+            cursor: pointer;
+        }
+
+        .notification-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #ef4444;
+            color: white;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .user-avatar {
+            width: 35px;
+            height: 35px;
+            background: #06b6d4;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+        }
+
+        .content-grid {
+            display: grid;
+            grid-template-columns: 1fr 650px;
+            gap: 30px;
+            max-width: 1800px;
+        }
+
+        .create-post-card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .create-post-card form {
+            width: 100%;
+            max-width: 550px;
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 20px;
+            width: 100%;
+            max-width: 550px;
+            text-align: center;
+        }
+
+        .form-group {
+            margin-bottom: 24px;
+        }
+
+        .form-label {
+            font-size: 15px;
+            font-weight: 500;
+            color: #475569;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        .post-textarea {
+            width: 100%;
+            min-height: 150px;
+            padding: 14px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 15px;
+            resize: vertical;
+            font-family: inherit;
+        }
+
+        .post-textarea:focus {
+            outline: none;
+            border-color: #06b6d4;
+        }
+
+        .char-count {
+            text-align: right;
+            font-size: 13px;
+            color: #94a3b8;
+            margin-top: 6px;
+        }
+
+        .media-upload {
+            border: 2px dashed #cbd5e1;
+            border-radius: 8px;
+            padding: 50px 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: #f8fafc;
+        }
+
+        .media-upload:hover {
+            border-color: #06b6d4;
+            background: #f0f9ff;
+        }
+
+        .media-upload i {
+            font-size: 40px;
+            color: #94a3b8;
+            margin-bottom: 12px;
+        }
+
+        .media-upload p {
+            color: #64748b;
+            font-size: 15px;
+        }
+
+        .media-preview {
+            margin-top: 15px;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .media-preview img,
+        .media-preview video {
+            width: 100%;
+            max-height: 300px;
+            object-fit: cover;
+        }
+
+        .remove-media {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .platform-buttons {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .platform-btn {
+            padding: 12px 24px;
+            border: 2px solid #e2e8f0;
+            border-radius: 20px;
+            background: white;
+            color: #334155;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 15px;
+            font-weight: 500;
+            transition: all 0.2s;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .platform-btn:hover {
+            border-color: #06b6d4;
+            background: #f0fdfa;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .platform-btn.active {
+            background: #ec4899;
+            color: white;
+            border-color: #ec4899;
+            transform: scale(1.05);
+        }
+
+        .platform-btn.active.instagram {
+            background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+            border-color: #dc2743;
+        }
+
+        .platform-btn.active.facebook {
+            background: #1877f2;
+            border-color: #1877f2;
+        }
+
+        .platform-btn.active.x {
+            background: #000000;
+            border-color: #000000;
+        }
+
+        .platform-btn.active.linkedin {
+            background: #0a66c2;
+            border-color: #0a66c2;
+        }
+
+        /* Platform-specific icons colors when not active */
+        .platform-btn.linkedin {
+            border-color: #0a66c2;
+            color: #0a66c2;
+        }
+
+        .platform-btn.facebook {
+            border-color: #1877f2;
+            color: #1877f2;
+        }
+
+        .platform-btn.instagram {
+            border-color: #e4405f;
+            color: #e4405f;
+        }
+
+        .platform-btn.x {
+            border-color: #000000;
+            color: #000000;
+        }
+
+        .datetime-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .input-field {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 15px;
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: #06b6d4;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 30px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 14px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-draft {
+            background: #06b6d4;
+            color: white;
+        }
+
+        .btn-draft:hover {
+            background: #0891b2;
+        }
+
+        .btn-preview {
+            background: #f1f5f9;
+            color: #475569;
+        }
+
+        .btn-preview:hover {
+            background: #e2e8f0;
+        }
+
+        .btn-schedule {
+            background: #06b6d4;
+            color: white;
+        }
+
+        .btn-schedule:hover {
+            background: #0891b2;
+        }
+
+        .btn-post-now {
+            background: #06b6d4;
+            color: white;
+        }
+
+        .btn-post-now:hover {
+            background: #0891b2;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+            display: none;
+            align-items: center;
+            gap: 10px;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .notification.success {
+            background: #10b981;
+        }
+
+        .notification.error {
+            background: #ef4444;
+        }
+
+        .notification.show {
+            display: flex;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .calendar-section {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .upcoming-posts {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-top: 30px;
+        }
+
+        .post-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            transition: all 0.2s;
+            border: 1px solid #e2e8f0;
+        }
+
+        .post-item:hover {
+            background: #f8fafc;
+            border-color: #cbd5e1;
+        }
+
+        .post-platform-icon {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 16px;
+            font-weight: 700;
+            flex-shrink: 0;
+            background: #000000; /* Default black background for X/Twitter */
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+
+        .post-platform-icon i {
+            color: white;
+        }
+
+        .post-platform-icon.instagram {
+            background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
+        }
+
+        .post-platform-icon.facebook {
+            background: #1877f2;
+        }
+
+        .post-platform-icon.linkedin {
+            background: #0a66c2;
+        }
+
+        .post-platform-icon.x {
+            background: #000000;
+        }
+        
+        .post-platform-icon.x i {
+            font-size: 18px;
+            font-weight: bold;
+            color: white;
+        }
+
+        .post-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .post-text {
+            font-size: 15px;
+            color: #1e293b;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+
+        .post-meta {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            color: #64748b;
+        }
+
+        .post-status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .post-status-badge.published {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .post-status-badge.scheduled {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .post-status-badge.draft {
+            background: #f3f4f6;
+            color: #4b5563;
+        }
+
+        .post-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .action-icon-btn {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: transparent;
+            color: #64748b;
+            cursor: pointer;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .action-icon-btn:hover {
+            background: #f1f5f9;
+            color: #1e293b;
+        }
+
+        .action-icon-btn.delete:hover {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+
+        .post-content {
+            flex: 1;
+        }
+
+        .post-text {
+            font-size: 14px;
+            color: #1e293b;
+            margin-bottom: 5px;
+        }
+
+        .post-time {
+            font-size: 12px;
+            color: #94a3b8;
+        }
+
+        .post-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .icon-btn {
+            background: none;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            padding: 5px;
+        }
+
+        .icon-btn:hover {
+            color: #475569;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .loading {
+            pointer-events: none;
+            opacity: 0.6;
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div>
+            <div class="sidebar-title">SMMS</div>
+            <nav>
+                <a href="{{ url_for('manager_dashboard') }}" class="nav-item">Dashboard</a>
+                <a href="{{ url_for('team_collaboration') }}" class="nav-item">Team Collaboration</a>
+                <a href="{{ url_for('post_scheduler') }}" class="nav-item active">Post Scheduler</a>
+                <a href="{{ url_for('linked_accounts') }}" class="nav-item">Linked Accounts</a>
+            </nav>
+        </div>
+        <div>
+            <a href="{{ url_for('auth.logout') }}" class="logout">Logout</a>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="header">
+            <h1 style="font-size: 1.875rem; font-weight: 600; color: #111827;">Post Scheduler</h1>
+            <div class="user-info">
+                <div class="notification-bell">
+                    🔔<span class="notification-badge">{{ notification_count or 0 }}</span>
+                </div>
+                <div class="user-avatar">{{ user_initial }}</div>
+                <span style="font-weight: 500; color: #111827;">{{ session.full_name or user.full_name or 'Manager' }}</span>
+            </div>
+        </div>
+
+        <div class="content-grid">
+            <div>
+                <div class="upcoming-posts">
+                    <div class="card-title">My Posts (<span id="postCount">0</span>)</div>
+                    <div id="postsList"></div>
+                </div>
+            </div>
+
+            <div class="create-post-card">
+                <div class="card-title">Create New Post</div>
+                
+                <form id="postForm">
+                    <div class="form-group">
+                        <label class="form-label">What's on your mind?</label>
+                        <textarea 
+                            class="post-textarea" 
+                            id="postText"
+                            placeholder="Share your thoughts, updates, or promotions..."
+                            maxlength="2800"
+                        ></textarea>
+                        <div class="char-count"><span id="charCount">0</span>/2800</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Media</label>
+                        <div class="media-upload" id="mediaUpload">
+                            <i class="fas fa-camera"></i>
+                            <p>Drag and drop images or click to upload</p>
+                            <input type="file" id="mediaInput" accept="image/*,video/*">
+                        </div>
+                        <div id="mediaPreview" class="media-preview" style="display: none;"></div>
+                    </div>
+
+              <div class="form-group">
+  <label class="form-label">Select Platforms</label>
+  <div class="platform-buttons">
+    {% if accounts and accounts|length > 0 %}
+      {% for account in accounts %}
+        {% set pname = account.platform_name or 'Unknown' %}
+        {% if pname|lower == 'instagram' %}
+          <button type="button" class="platform-btn instagram" data-account-id="{{ account.account_id }}">
+            <i class="fab fa-instagram"></i> Instagram
+          </button>
+        {% elif pname|lower == 'facebook' %}
+          <button type="button" class="platform-btn facebook" data-account-id="{{ account.account_id }}">
+            <i class="fab fa-facebook"></i> Facebook
+          </button>
+        {% elif pname|lower in ['x', 'twitter'] %}
+          <button type="button" class="platform-btn x" data-account-id="{{ account.account_id }}">
+            <i class="fab fa-x-twitter"></i> X
+          </button>
+        {% elif pname|lower == 'linkedin' %}
+          <button type="button" class="platform-btn linkedin" data-account-id="{{ account.account_id }}">
+            <i class="fab fa-linkedin"></i> LinkedIn
+          </button>
+        {% else %}
+          <!-- Generic button for any other linked account -->
+          <button type="button" class="platform-btn" data-account-id="{{ account.account_id }}">
+            <i class="fas fa-globe"></i> {{ account.platform_name }}{% if account.account_username %} ({{ account.account_username }}){% endif %}
+          </button>
+        {% endif %}
+      {% endfor %}
+    {% else %}
+      <div style="padding: 1rem; background-color: #fef3c7; border: 1px solid #fbbf24; border-radius: 8px; text-align: center;">
+        <i class="fas fa-exclamation-triangle" style="color: #f59e0b; margin-right: 8px;"></i>
+        <span style="color: #92400e;">No social media accounts linked. <a href="/linked-accounts" style="color: #0891b2; text-decoration: underline;">Link an account</a> to start posting.</span>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+
+                    <div class="form-group">
+                        <div class="datetime-group">
+                            <div>
+                                <label class="form-label">Date</label>
+                                <input type="date" class="input-field" id="postDate">
+                            </div>
+                            <div>
+                                <label class="form-label">Time</label>
+                                <input type="time" class="input-field" id="postTime">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button type="button" class="btn btn-draft" id="saveDraftBtn">Save Draft</button>
+                        <button type="button" class="btn btn-post-now" id="postNowBtn">Post Now</button>
+                        <button type="button" class="btn btn-schedule" id="scheduleBtn">Schedule Post</button>
+                    </div>
+                    <div id="cancelEditBtn" style="display: none; margin-top: 10px; text-align: center;">
+                        <button type="button" class="btn btn-preview" onclick="cancelEdit()" style="width: 100%;">
+                            <i class="fas fa-times"></i> Cancel Edit
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="notification" id="notification">
+        <i class="fas fa-check-circle"></i>
+        <span id="notificationText"></span>
+    </div>
+
+    <script>
+const API_URL = 'http://127.0.0.1:5000/api';
+let selectedMedia = null;
+let selectedAccounts = new Set(); // ✅ store numeric account IDs, not platform names
+let editingPostId = null;
+
+// =======================
+// Character counter
+// =======================
+document.getElementById('postText').addEventListener('input', e => {
+  document.getElementById('charCount').textContent = e.target.value.length;
+});
+
+// =======================
+// Media upload
+// =======================
+document.getElementById('mediaUpload').addEventListener('click', () => {
+  document.getElementById('mediaInput').click();
+});
+
+document.getElementById('mediaInput').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (file) {
+    selectedMedia = file;
+    displayMediaPreview(file);
+  }
+});
+
+function displayMediaPreview(file) {
+  const preview = document.getElementById('mediaPreview');
+  const reader = new FileReader();
+  reader.onload = e => {
+    const isVideo = file.type.startsWith('video/');
+    preview.innerHTML = `
+      ${isVideo ? `<video src="${e.target.result}" controls></video>` 
+                : `<img src="${e.target.result}" alt="Preview">`}
+      <button class="remove-media" onclick="removeMedia()">
+        <i class="fas fa-times"></i>
+      </button>
+    `;
+    preview.style.display = 'block';
+    document.getElementById('mediaUpload').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeMedia() {
+  selectedMedia = null;
+  document.getElementById('mediaPreview').style.display = 'none';
+  document.getElementById('mediaPreview').innerHTML = '';
+  document.getElementById('mediaUpload').style.display = 'block';
+  document.getElementById('mediaInput').value = '';
+}
+
+// =======================
+// Platform selection
+// =======================
+document.addEventListener('DOMContentLoaded', () => {
+  // Initialize date and time inputs
+  const postDateInput = document.getElementById('postDate');
+  const postTimeInput = document.getElementById('postTime');
+  
+  // Set default date to today
+  const now = new Date();
+  const today = now.toISOString().split('T')[0];
+  postDateInput.value = today;
+  postDateInput.min = today; // Prevent selecting past dates
+  
+  // Leave time blank - user will select their own time
+  postTimeInput.value = '';
+  
+  // Add event listener to validate time when input loses focus (not during typing)
+  postDateInput.addEventListener('blur', function() {
+    validateDateTime();
+  });
+  
+  postTimeInput.addEventListener('blur', function() {
+    validateDateTime();
+  });
+  
+  function validateDateTime() {
+    const selectedDate = postDateInput.value;
+    const selectedTime = postTimeInput.value;
+    
+    if (!selectedDate || !selectedTime) return;
+    
+    const selectedDateTime = new Date(`${selectedDate}T${selectedTime}`);
+    const currentDateTime = new Date();
+    
+    // If selected time is in the past, show error and clear the time
+    if (selectedDateTime <= currentDateTime) {
+      postTimeInput.value = ''; // Clear the time field
+      showNotification('Cannot schedule in the past. Please select a future time.', 'error');
+    }
+  }
+  
+  // Platform button selection
+  document.querySelectorAll('.platform-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const accId = this.getAttribute('data-account-id');
+      if (!accId) return;
+      if (selectedAccounts.has(accId)) {
+        selectedAccounts.delete(accId);
+        this.classList.remove('active');
+      } else {
+        selectedAccounts.add(accId);
+        this.classList.add('active');
+      }
+    });
+  });
+});
+
+// =======================
+// Notifications
+// =======================
+function showNotification(message, type = 'success') {
+  const notification = document.getElementById('notification');
+  const text = document.getElementById('notificationText');
+  notification.className = `notification ${type} show`;
+  text.textContent = message;
+  setTimeout(() => notification.classList.remove('show'), 3000);
+}
+
+// =======================
+// Button listeners
+// =======================
+document.getElementById('saveDraftBtn').addEventListener('click', () => savePost('draft'));
+document.getElementById('postNowBtn').addEventListener('click', () => savePost('published', true));
+document.getElementById('scheduleBtn').addEventListener('click', () => {
+  const date = document.getElementById('postDate').value;
+  const time = document.getElementById('postTime').value;
+  
+  if (!date || !time) {
+    showNotification('Please select date and time for scheduling', 'error');
+    return;
+  }
+  
+  // Validate that scheduled time is not in the past
+  const scheduledDateTime = new Date(`${date}T${time}`);
+  const currentDateTime = new Date();
+  
+  if (scheduledDateTime < currentDateTime) {
+    showNotification('Cannot schedule a post in the past. Please select a future date and time.', 'error');
+    return;
+  }
+  
+  // Check if scheduled time is too soon (less than 1 minute from now)
+  const timeDiff = scheduledDateTime - currentDateTime;
+  if (timeDiff < 60000) { // 60000 ms = 1 minute
+    showNotification('Please schedule at least 1 minute in the future.', 'error');
+    return;
+  }
+  
+  savePost('scheduled');
+});
+
+// =======================
+// Core save function
+// =======================
+async function savePost(status, isImmediate = false) {
+  const text = document.getElementById('postText').value;
+  const date = document.getElementById('postDate').value;
+  const time = document.getElementById('postTime').value;
+
+  if (!text && !selectedMedia) {
+    showNotification('Post must contain text or media', 'error');
+    return;
+  }
+
+  if (selectedAccounts.size === 0) {
+    showNotification('Please select at least one linked account', 'error');
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('text', text);
+  formData.append('status', status);
+
+  if (selectedMedia) formData.append('media', selectedMedia);
+  if (isImmediate) {
+    const now = new Date();
+    const publishedTime = now.toISOString().slice(0, 19).replace('T', ' ');
+    formData.append('published_at', publishedTime);
+  } else if (date && time) {
+    const scheduledTime = `${date}T${time}`;
+    formData.append('scheduled_time', scheduledTime);
+  }
+
+  // ✅ Append real account IDs
+  selectedAccounts.forEach(accId => formData.append('account_ids[]', accId));
+
+  const btn = status === 'draft'
+    ? document.getElementById('saveDraftBtn')
+    : isImmediate
+    ? document.getElementById('postNowBtn')
+    : document.getElementById('scheduleBtn');
+
+  btn.classList.add('loading');
+  btn.disabled = true;
+
+  try {
+    const url = editingPostId ? `${API_URL}/posts/${editingPostId}` : `${API_URL}/posts`;
+    const method = editingPostId ? 'PUT' : 'POST';
+    const response = await fetch(url, { method, body: formData });
+    const data = await response.json();
+
+    if (response.ok) {
+      const msg = editingPostId
+        ? status === 'draft'
+          ? 'Draft updated successfully!'
+          : isImmediate
+          ? 'Post updated and published!'
+          : 'Schedule updated successfully!'
+        : status === 'draft'
+        ? 'Draft saved successfully!'
+        : isImmediate
+        ? 'Post published successfully!'
+        : 'Post scheduled successfully!';
+
+      showNotification(msg, 'success');
+      editingPostId = null;
+      resetForm();
+      loadPosts();
+    } else {
+      showNotification(data.error || 'Failed to save post', 'error');
+    }
+  } catch (err) {
+    console.error('Error:', err);
+    showNotification('Network error. Please try again.', 'error');
+  } finally {
+    btn.classList.remove('loading');
+    btn.disabled = false;
+  }
+}
+
+// =======================
+// Reset form
+// =======================
+function resetForm() {
+  editingPostId = null;
+  document.getElementById('postText').value = '';
+  document.getElementById('postDate').value = '';
+  document.getElementById('postTime').value = '';
+  document.getElementById('charCount').textContent = '0';
+  removeMedia();
+  selectedAccounts.clear();
+  document.querySelectorAll('.platform-btn').forEach(btn => btn.classList.remove('active'));
+  document.getElementById('saveDraftBtn').textContent = 'Save Draft';
+  document.getElementById('postNowBtn').textContent = 'Post Now';
+  document.getElementById('scheduleBtn').textContent = 'Schedule Post';
+  document.getElementById('cancelEditBtn').style.display = 'none';
+}
+
+// =======================
+// Cancel Edit
+// =======================
+function cancelEdit() {
+  resetForm();
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('postDate').value = today;
+  document.getElementById('postTime').value = '10:00';
+  showNotification('Edit cancelled', 'success');
+}
+
+// =======================
+// Load existing posts (unchanged)
+// =======================
+async function loadPosts() {
+  try {
+    const response = await fetch(`${API_URL}/posts?limit=50`);
+    if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+    const posts = await response.json();
+    console.log('Loaded posts:', posts);
+    const postsList = document.getElementById('postsList');
+    document.getElementById('postCount').textContent = posts.length;
+
+    if (!posts || posts.length === 0) {
+      postsList.innerHTML = '<p style="color: #94a3b8; text-align: center; padding: 20px;">No posts yet</p>';
+      return;
+    }
+
+    postsList.innerHTML = posts.map(post => {
+      console.log('🔍 Raw post.platforms:', post.platforms); // See raw data
+      const platforms = (post.platforms || []).map(p => p.platform_name || 'Unknown');
+      
+      console.log('📱 Extracted platform names:', platforms); // Debug log
+      
+      // Get platform text with proper class - default to X if no platform
+      let platformText = 'X';
+      let platformClass = 'x';
+      
+      if (platforms.length > 0) {
+        const p = platforms[0].toLowerCase();
+        if (p === 'instagram') {
+          platformText = 'IG';
+          platformClass = 'instagram';
+        } else if (p === 'facebook') {
+          platformText = 'FB';
+          platformClass = 'facebook';
+        } else if (p === 'x' || p === 'twitter') {
+          platformText = 'X';
+          platformClass = 'x';
+        } else if (p === 'linkedin') {
+          platformText = 'in';
+          platformClass = 'linkedin';
+        } else {
+          // Default for unknown platforms
+          platformText = 'X';
+          platformClass = 'x';
+        }
+      }
+      
+      console.log('🎨 Generated platformText:', platformText, 'platformClass:', platformClass); // Debug text
+
+      // Determine status badge
+      let statusBadge = '';
+      let dateText = '';
+      if (post.status === 'published') {
+        statusBadge = '<span class="post-status-badge published">Published</span>';
+      } else if (post.status === 'scheduled' && post.scheduled_time) {
+        statusBadge = '<span class="post-status-badge scheduled">Scheduled</span>';
+        dateText = new Date(post.scheduled_time).toLocaleDateString('en-US', { 
+          month: 'short', 
+          day: 'numeric', 
+          year: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true
+        });
+      } else {
+        statusBadge = '<span class="post-status-badge draft">Draft</span>';
+      }
+
+      return `
+        <div class="post-item">
+          <div class="post-platform-icon ${platformClass}" title="${platforms[0] || 'Platform'}">
+            ${platformText}
+          </div>
+          <div class="post-content">
+            <div class="post-text">${post.text || '(Media only)'}</div>
+            <div class="post-meta">
+              ${statusBadge}
+              ${dateText ? `<span>${dateText}</span>` : ''}
+            </div>
+          </div>
+          <div class="post-actions">
+            <button class="action-icon-btn edit" onclick="editPost(${post.id})" title="Edit">
+              <i class="fas fa-edit"></i>
+            </button>
+            <button class="action-icon-btn delete" onclick="deletePost(${post.id})" title="Delete">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </div>`;
+    }).join('');
+  } catch (err) {
+    console.error('Error loading posts:', err);
+  }
+}
+
+// =======================
+// Edit Post
+// =======================
+async function editPost(postId) {
+  try {
+    const response = await fetch(`${API_URL}/posts?limit=50`);
+    const posts = await response.json();
+    const post = posts.find(p => p.id === postId);
+    
+    if (!post) {
+      showNotification('Post not found', 'error');
+      return;
+    }
+    
+    // Set editing mode
+    editingPostId = postId;
+    
+    // Populate form with post data
+    document.getElementById('postText').value = post.text || '';
+    document.getElementById('charCount').textContent = (post.text || '').length;
+    
+    // Set scheduled time if exists
+    if (post.scheduled_time) {
+      const schedTime = new Date(post.scheduled_time);
+      const dateStr = schedTime.toISOString().split('T')[0];
+      const timeStr = schedTime.toTimeString().slice(0, 5);
+      document.getElementById('postDate').value = dateStr;
+      document.getElementById('postTime').value = timeStr;
+    }
+    
+    // Select platforms (get platform IDs from post)
+    selectedAccounts.clear();
+    document.querySelectorAll('.platform-btn').forEach(btn => btn.classList.remove('active'));
+    
+    // Load media if exists
+    if (post.media_url) {
+      // Show media preview (simplified - you can enhance this)
+      const preview = document.getElementById('mediaPreview');
+      preview.innerHTML = `<p style="color: #64748b; padding: 10px;">Media attached (cannot preview existing media)</p>`;
+      preview.style.display = 'block';
+      document.getElementById('mediaUpload').style.display = 'none';
+    }
+    
+    // Update button text
+    document.getElementById('saveDraftBtn').textContent = 'Update Draft';
+    document.getElementById('postNowBtn').textContent = 'Update & Publish';
+    document.getElementById('scheduleBtn').textContent = 'Update Schedule';
+    
+    // Show cancel button
+    document.getElementById('cancelEditBtn').style.display = 'block';
+    
+    // Scroll to form
+    document.querySelector('.create-post-card').scrollIntoView({ behavior: 'smooth' });
+    
+    showNotification('Edit mode: Update your post below', 'success');
+  } catch (err) {
+    console.error('Error editing post:', err);
+    showNotification('Failed to load post', 'error');
+  }
+}
+
+// =======================
+// Delete Post
+// =======================
+async function deletePost(postId) {
+  if (!confirm('Are you sure you want to delete this post?')) {
+    return;
+  }
+  
+  try {
+    const response = await fetch(`${API_URL}/posts/${postId}`, {
+      method: 'DELETE'
+    });
+    
+    if (response.ok) {
+      showNotification('Post deleted successfully!', 'success');
+      loadPosts();
+    } else {
+      const data = await response.json();
+      showNotification(data.error || 'Failed to delete post', 'error');
+    }
+  } catch (err) {
+    console.error('Error deleting post:', err);
+    showNotification('Failed to delete post', 'error');
+  }
+}
+
+loadPosts();
+const today = new Date().toISOString().split('T')[0];
+document.getElementById('postDate').value = today;
+document.getElementById('postTime').value = '10:00';
+</script>
+</body>
+</html>

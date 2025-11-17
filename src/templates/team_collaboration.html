@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Team Collaboration - SMMS</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/team_collaboration.css') }}">
+  <style>
+    /* Modal styles */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      animation: fadeIn 0.2s ease;
+    }
+
+    .modal-content {
+      background-color: white;
+      margin: 10% auto;
+      padding: 2rem;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 500px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+      animation: slideDown 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes slideDown {
+      from { transform: translateY(-50px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .modal-title {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #111827;
+    }
+
+    .close-btn {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #6b7280;
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 0;
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      transition: all 0.2s;
+    }
+
+    .close-btn:hover {
+      background-color: #f3f4f6;
+      color: #111827;
+    }
+
+    .form-group {
+      margin-bottom: 1.25rem;
+    }
+
+    .form-label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+      color: #374151;
+    }
+
+    .form-input, .form-select {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      transition: all 0.2s;
+    }
+
+    .form-input:focus, .form-select:focus {
+      outline: none;
+      border-color: #8b5cf6;
+      box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 1.5rem;
+    }
+
+    .btn-cancel {
+      flex: 1;
+      padding: 0.75rem;
+      background-color: #f3f4f6;
+      color: #374151;
+      border: none;
+      border-radius: 8px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-cancel:hover {
+      background-color: #e5e7eb;
+    }
+
+    .btn-submit {
+      flex: 1;
+      padding: 0.75rem;
+      background-color: #8b5cf6;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-submit:hover {
+      background-color: #7c3aed;
+    }
+
+    .btn-submit:disabled {
+      background-color: #d1d5db;
+      cursor: not-allowed;
+    }
+
+    .success-message {
+      background-color: #d1fae5;
+      color: #065f46;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      display: none;
+    }
+
+    .error-message {
+      background-color: #fee2e2;
+      color: #991b1b;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      display: none;
+    }
+
+    .temp-password-box {
+      background-color: #fef3c7;
+      border: 2px dashed #f59e0b;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-top: 1rem;
+      display: none;
+    }
+
+    .temp-password-box strong {
+      color: #92400e;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div>
+      <div class="sidebar-title">SMMS Manager</div>
+      <nav>
+        <a href="{{ url_for('manager_dashboard') }}" class="nav-item">Dashboard</a>
+        <a href="{{ url_for('team_collaboration') }}" class="nav-item active">Team Collaboration</a>
+        <a href="{{ url_for('post_scheduler') }}" class="nav-item">Post Scheduler</a>
+        <a href="{{ url_for('linked_accounts') }}" class="nav-item">Linked Accounts</a>
+      </nav>
+    </div>
+    <div>
+      <a href="{{ url_for('auth.logout') }}" class="logout">Logout</a>
+    </div>
+  </div>
+
+  <!-- Main content -->
+  <div class="main-content">
+    <div class="header">
+      <div style="flex: 1;"></div>
+      <div class="user-info">
+        <div class="notification-bell">
+          🔔<span class="notification-badge">{{ notification_count or 0 }}</span>
+        </div>
+        <div class="user-avatar">{{ user_initial }}</div>
+        <span style="font-weight: 500; color: #111827;">{{ session.full_name or 'Manager' }}</span>
+      </div>
+    </div>
+
+    <div class="content-grid">
+      <!-- Team Members -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">Team Members</h2>
+          <button class="btn-primary" onclick="openInviteModal()">+ Invite Member</button>
+        </div>
+
+        <div class="members-search">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="memberSearch" placeholder="Search members..." oninput="searchMembers()">
+        </div>
+
+        <div class="members-list" id="membersList">
+          {% for member in team_members %}
+          <div class="member-item">
+            <div class="member-info">
+              <div class="member-avatar"
+                style="background-color: {% if member.role == 'manager' %}#ef4444{% elif member.role == 'user' %}#10b981{% else %}#8b5cf6{% endif %};">
+                {{ member.name[0] }}
+              </div>
+              <div class="member-details">
+                <h3>{{ member.name }}</h3>
+                <p style="font-size: 0.875rem; color: #6b7280;">{{ member.email }}</p>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <span class="member-role {% if member.role == 'manager' %}role-admin{% else %}role-editor{% endif %}">
+                {{ member.role|title }}
+              </span>
+              <span class="member-menu">⋮</span>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Pending Post Approvals -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">Post Approval Requests</h2>
+        </div>
+
+        <div class="feed-filter">
+          <select class="filter-dropdown" onchange="filterPosts(this.value)">
+            <option value="all">All Posts</option>
+            <option value="pending">Pending</option>
+            <option value="scheduled">Scheduled</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+          </select>
+        </div>
+
+        <div class="activity-feed" id="postsFeed">
+          {% if pending_posts %}
+            {% for post in pending_posts %}
+            <div class="activity-item" id="post_{{ post.post_id }}">
+              <div class="activity-icon">📝</div>
+              <div class="activity-content">
+                <div class="activity-header">
+                  <span class="activity-user">{{ post.author }}</span>
+                  <span class="activity-action">
+                    {% if post.status == 'scheduled' %}
+                      scheduled a post
+                    {% else %}
+                      submitted a post for review
+                    {% endif %}
+                  </span>
+                  <span class="activity-time">{{ post.created_at.strftime('%b %d, %Y at %I:%M %p') if post.created_at else 'Recently' }}</span>
+                </div>
+                <p style="margin: 0.5rem 0; color: #374151;">{{ post.content_text[:100] }}{% if post.content_text|length > 100 %}...{% endif %}</p>
+                
+                {% if post.scheduled_time %}
+                  {% set time_passed = post.scheduled_time < current_time %}
+                  <p style="margin: 0.25rem 0; color: {% if time_passed %}#dc2626{% elif post.status == 'pending' %}#f59e0b{% else %}#059669{% endif %}; font-size: 0.875rem; font-weight: 500;">
+                    {% if time_passed %}
+                      ⚠️ <strong>EXPIRED:</strong> Scheduled time passed - {{ post.scheduled_time.strftime('%b %d, %Y at %I:%M %p') }}
+                    {% else %}
+                      📅 {% if post.status == 'pending' %}Requested schedule for:{% else %}Scheduled for:{% endif %} {{ post.scheduled_time.strftime('%b %d, %Y at %I:%M %p') }}
+                    {% endif %}
+                  </p>
+                {% endif %}
+                
+                <span class="request-badge {% if post.status == 'scheduled' %}badge-scheduled{% else %}badge-pending{% endif %}">{{ post.status|title }}</span>
+                <a href="#" class="activity-link" onclick="viewPostDetails({{ post.post_id }})">→ View details</a>
+                {% if post.status == 'pending' or post.status == 'scheduled' %}
+                <div class="request-actions">
+                  {% if post.scheduled_time and post.scheduled_time < current_time %}
+                    <button class="btn-reject" onclick="updatePostStatus({{ post.post_id }}, 'rejected')" style="width: 100%;">✗ Reject (Time Passed)</button>
+                  {% else %}
+                    <button class="btn-approve" onclick="updatePostStatus({{ post.post_id }}, 'approved')">✓ Approve</button>
+                    <button class="btn-reject" onclick="updatePostStatus({{ post.post_id }}, 'rejected')">✗ Reject</button>
+                  {% endif %}
+                </div>
+                {% endif %}
+              </div>
+            </div>
+            {% endfor %}
+          {% else %}
+            <p style="text-align:center; color: gray; padding: 2rem;">No posts to review.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Invite Member Modal -->
+  <div id="inviteModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">Invite Team Member</h2>
+        <button class="close-btn" onclick="closeInviteModal()">&times;</button>
+      </div>
+
+      <div id="successMessage" class="success-message"></div>
+      <div id="errorMessage" class="error-message"></div>
+
+      <form id="inviteForm" onsubmit="inviteMember(event)">
+        <div class="form-group">
+          <label class="form-label">Full Name *</label>
+          <input type="text" class="form-input" id="memberName" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Email Address *</label>
+          <input type="email" class="form-input" id="memberEmail" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Role *</label>
+          <select class="form-select" id="memberRole">
+            <option value="user">User</option>
+            <option value="manager">Manager</option>
+          </select>
+        </div>
+
+        <div id="tempPasswordBox" class="temp-password-box">
+          <strong>⚠️ Temporary Password:</strong>
+          <p id="tempPassword" style="font-family: monospace; font-size: 1.1rem; margin-top: 0.5rem;"></p>
+          <small>Share this password securely with the new member.</small>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn-cancel" onclick="closeInviteModal()">Cancel</button>
+          <button type="submit" class="btn-submit" id="submitBtn">Send Invite</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // Post approval functions
+    async function updatePostStatus(postId, action) {
+      if (action === 'approved' && !confirm('Approve this post?')) return;
+      if (action === 'rejected') {
+        const reason = prompt('Please provide a reason for rejection:');
+        if (!reason) return;
+      }
+
+      try {
+        const response = await fetch('/update_post_status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ post_id: postId, action: action })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          const item = document.getElementById(`post_${postId}`);
+          item.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+          item.style.opacity = '0';
+          item.style.transform = 'translateX(20px)';
+          setTimeout(() => {
+            item.remove();
+            const feed = document.getElementById('postsFeed');
+            if (!feed.querySelector('.activity-item')) {
+              feed.innerHTML = '<p style="text-align:center; color: gray; padding: 2rem;">No posts to review.</p>';
+            }
+          }, 300);
+        } else {
+          alert('❌ Failed to update status: ' + result.message);
+        }
+      } catch (err) {
+        console.error(err);
+        alert('⚠️ Something went wrong.');
+      }
+    }
+
+    function viewPostDetails(postId) {
+      // Navigate to post details page
+      window.location.href = `/post/${postId}`;
+    }
+
+    function filterPosts(status) {
+      // Implement filter logic or reload page with filter
+      window.location.href = `/team-collaboration?filter=${status}`;
+    }
+
+    // Modal functions
+    function openInviteModal() {
+      document.getElementById('inviteModal').style.display = 'block';
+      document.getElementById('inviteForm').reset();
+      document.getElementById('successMessage').style.display = 'none';
+      document.getElementById('errorMessage').style.display = 'none';
+      document.getElementById('tempPasswordBox').style.display = 'none';
+    }
+
+    function closeInviteModal() {
+      document.getElementById('inviteModal').style.display = 'none';
+    }
+
+    // Close modal on outside click
+    window.onclick = function(event) {
+      const modal = document.getElementById('inviteModal');
+      if (event.target === modal) {
+        closeInviteModal();
+      }
+    }
+
+    // Invite member function
+    async function inviteMember(event) {
+      event.preventDefault();
+
+      const submitBtn = document.getElementById('submitBtn');
+      const successMsg = document.getElementById('successMessage');
+      const errorMsg = document.getElementById('errorMessage');
+      const tempPassBox = document.getElementById('tempPasswordBox');
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Sending...';
+      successMsg.style.display = 'none';
+      errorMsg.style.display = 'none';
+      tempPassBox.style.display = 'none';
+
+      const data = {
+        name: document.getElementById('memberName').value,
+        email: document.getElementById('memberEmail').value,
+        role: document.getElementById('memberRole').value
+      };
+
+      try {
+        const response = await fetch('/invite_member', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          successMsg.textContent = result.message;
+          successMsg.style.display = 'block';
+          
+          // Show temporary password
+          document.getElementById('tempPassword').textContent = result.temp_password;
+          tempPassBox.style.display = 'block';
+
+          // Add new member to list
+          addMemberToList(result.member);
+
+          // Reset form
+          document.getElementById('inviteForm').reset();
+          
+          submitBtn.textContent = 'Invite Another';
+          
+          // Auto close after 5 seconds
+          setTimeout(() => {
+            closeInviteModal();
+          }, 8000);
+        } else {
+          errorMsg.textContent = result.message;
+          errorMsg.style.display = 'block';
+          submitBtn.textContent = 'Send Invite';
+        }
+      } catch (err) {
+        console.error(err);
+        errorMsg.textContent = '⚠️ Network error. Please try again.';
+        errorMsg.style.display = 'block';
+        submitBtn.textContent = 'Send Invite';
+      }
+
+      submitBtn.disabled = false;
+    }
+
+    // Add member to the list dynamically
+    function addMemberToList(member) {
+      const membersList = document.getElementById('membersList');
+      const roleColor = member.role === 'manager' ? '#ef4444' : '#10b981';
+      const roleClass = member.role === 'manager' ? 'role-admin' : 'role-editor';
+
+      const memberHTML = `
+        <div class="member-item">
+          <div class="member-info">
+            <div class="member-avatar" style="background-color: ${roleColor};">
+              ${member.name[0]}
+            </div>
+            <div class="member-details">
+              <h3>${member.name}</h3>
+              <p style="font-size: 0.875rem; color: #6b7280;">${member.email}</p>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span class="member-role ${roleClass}">
+              ${member.role.charAt(0).toUpperCase() + member.role.slice(1)}
+            </span>
+            <span class="member-menu">⋮</span>
+          </div>
+        </div>
+      `;
+
+      membersList.insertAdjacentHTML('afterbegin', memberHTML);
+    }
+
+    // Search members function
+    async function searchMembers() {
+      const query = document.getElementById('memberSearch').value;
+      
+      try {
+        const response = await fetch(`/search_members?query=${encodeURIComponent(query)}`);
+        const members = await response.json();
+
+        const membersList = document.getElementById('membersList');
+        membersList.innerHTML = '';
+
+        members.forEach(member => {
+          const roleColor = member.role === 'manager' ? '#ef4444' : '#10b981';
+          const roleClass = member.role === 'manager' ? 'role-admin' : 'role-editor';
+
+          const memberHTML = `
+            <div class="member-item">
+              <div class="member-info">
+                <div class="member-avatar" style="background-color: ${roleColor};">
+                  ${member.name[0]}
+                </div>
+                <div class="member-details">
+                  <h3>${member.name}</h3>
+                  <p style="font-size: 0.875rem; color: #6b7280;">${member.email}</p>
+                </div>
+              </div>
+              <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <span class="member-role ${roleClass}">
+                  ${member.role.charAt(0).toUpperCase() + member.role.slice(1)}
+                </span>
+                <span class="member-menu">⋮</span>
+              </div>
+            </div>
+          `;
+
+          membersList.insertAdjacentHTML('beforeend', memberHTML);
+        });
+
+        if (members.length === 0) {
+          membersList.innerHTML = '<p style="text-align: center; color: gray; padding: 2rem;">No members found</p>';
+        }
+      } catch (err) {
+        console.error('Search error:', err);
+      }
+    }
+  </script>
+</body>
+</html>

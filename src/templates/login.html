@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Login | SMMS</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+
+<body>
+  <div class="container">
+
+    <!-- Left Panel -->
+    <div class="left-panel">
+      <h1>Manage all your<br>social media from<br>one place 🌐</h1>
+      <p>Schedule posts, analyze performance, and collaborate with your team.</p>
+    </div>
+
+    <!-- Right Panel -->
+    <div class="right-panel">
+
+      <!-- Toasts -->
+      <div class="toast-container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="toast toast-{{ category }}">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+      </div>
+
+      <form method="POST" action="{{ url_for('auth.login') }}" class="auth-form">
+
+        <h2>Welcome Back</h2>
+
+        <input type="email" name="email" placeholder="you@example.com" required>
+
+        <div class="password-wrapper">
+          <input type="password" id="password" name="password" placeholder="Enter your password" required>
+          <span id="togglePassword" class="toggle-eye">👁️</span>
+        </div>
+
+        <button type="submit">Sign In</button>
+
+        <!-- Google Login Button -->
+        <a href="{{ url_for('auth.login_google') }}" class="google-btn">
+          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+               alt="Google logo" class="google-icon">
+          Continue with Google
+        </a>
+
+        <p style="text-align: right; margin-top: 10px;">
+          <a href="{{ url_for('auth.forgot_password') }}">Forgot password?</a>
+        </p>
+
+        <p>
+          Don’t have an account?
+          <a href="{{ url_for('auth.signup') }}">Sign up here</a>
+        </p>
+
+      </form>
+
+    </div>
+  </div>
+
+  <!-- Toggle password -->
+  <script>
+    const toggle = document.getElementById("togglePassword");
+    if (toggle) {
+      toggle.addEventListener("click", () => {
+        const field = document.getElementById("password");
+        field.type = field.type === "password" ? "text" : "password";
+      });
+    }
+  </script>
+
+  <!-- Toast auto remove -->
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const toasts = document.querySelectorAll(".toast");
+      toasts.forEach(t => {
+        setTimeout(() => t.classList.add("hide"), 3000);
+        setTimeout(() => t.remove(), 3500);
+      });
+    });
+  </script>
+
+</body>
+</html>
