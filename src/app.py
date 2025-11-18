@@ -19,11 +19,67 @@ from flask import (
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 import requests
+import pytz
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
 # Standard library imports (moved after third-party)
 import atexit
+
+# Import notification helper
+try:
+    from notification_helper import (
+        notify_post_created,
+        notify_post_published as _notify_post_published_old,
+        notify_post_scheduled,
+        notify_post_deleted,
+        notify_post_edited,
+        notify_account_linked,
+        notify_account_unlinked,
+        notify_approval_request,
+        notify_post_approved,
+        notify_post_rejected,
+        send_publish_notification
+    )
+    NOTIFICATIONS_ENABLED = True
+    print("✅ Notification helper loaded")
+except ImportError as e:
+    NOTIFICATIONS_ENABLED = False
+    print(f"⚠️ Notification helper not found - notifications disabled: {e}")
+
+# Timezone setup
+IST = pytz.timezone("Asia/Kolkata")
+
+
+def get_platform_name(platform_id):
+    """
+    Convert platform ID → human-readable platform string.
+    """
+    mapping = {
+        1: "LinkedIn",
+        2: "Twitter",
+        3: "Instagram",
+        4: "Facebook",
+    }
+    return mapping.get(platform_id, "Unknown")
+
+
+def notify_post_published(user_id, platform_name, post_id):
+    """
+    Sends publish event to notification microservice.
+    """
+    if not NOTIFICATIONS_ENABLED:
+        return
+    
+    now_utc = datetime.utcnow().replace(tzinfo=pytz.UTC)
+    print(f"🔔 Notifying publish → user:{user_id}, post:{post_id}, platform:{platform_name}")
+    
+    send_publish_notification(
+        user_id=user_id,
+        platform=platform_name,
+        post_id=post_id,
+        published_at=now_utc,
+    )
 
 # ---------------------------
 # CONFIG & SETUP
@@ -665,6 +721,18 @@ def check_and_publish_scheduled_posts():
 
                     published_count += 1
                     print(f"✅ Post {sched_post.post_id} published successfully to {platform_name}!")
+                    
+                    # Send notification for successful scheduled publish
+                    if NOTIFICATIONS_ENABLED:
+                        try:
+                            platform_name_for_notif = get_platform_name(sched_post.platform_id)
+                            notify_post_published(
+                                user_id=post.user_id,
+                                platform_name=platform_name_for_notif,
+                                post_id=post.post_id
+                            )
+                        except Exception as notif_err:
+                            print(f"⚠️ Failed to send scheduled publish notification: {notif_err}")
                 else:
                     # Mark as failed
                     sched_post.status = 'failed'
@@ -702,7 +770,7 @@ def check_and_publish_scheduled_posts():
 # IMPORT AUTH BLUEPRINT
 # ---------------------------
 # Import auth blueprint (from same directory)
-from src.auth import auth, init_auth
+from auth import auth, init_auth
 
 # Initialize auth with User model and database
 init_auth(User, dbs)
@@ -1188,6 +1256,20 @@ def update_post_status():
 
         dbs.session.commit()
 
+        # Send team notification to post owner
+        post_owner_id = post.user_id
+        manager_name = session.get('full_name', 'Manager')
+        reject_reason = data.get('reason', '')
+        
+        if NOTIFICATIONS_ENABLED:
+            try:
+                if action == 'approved':
+                    notify_post_approved(post_owner_id, post_id, manager_name)
+                elif action == 'rejected':
+                    notify_post_rejected(post_owner_id, post_id, reject_reason, manager_name)
+            except Exception as e:
+                print(f"⚠️ Failed to send approval notification: {e}")
+
         return {'success': True, 'message': f'Post {action} successfully'}
 
     except Exception as e:
@@ -1612,6 +1694,13 @@ def create_post():
         dbs.session.commit()
         print("✅ Post committed successfully!")
 
+        # Send notification for post creation
+        if NOTIFICATIONS_ENABLED:
+            try:
+                notify_post_created(user_id, post.post_id, final_status)
+            except Exception as e:
+                print(f"⚠️ Failed to send creation notification: {e}")
+
         # If manager published immediately, publish to platforms now
         if final_status == 'published':
             print("\n🚀 Manager immediate publish - posting to platforms...")
@@ -1637,12 +1726,18 @@ def create_post():
                                 pp.platform_post_id = result
                             published_count += 1
                             print(f"✅ Published to platform {account.platform_id}")
+                            # Notify success
+                            if NOTIFICATIONS_ENABLED:
+                                platform_name = get_platform_name(account.platform_id)
+                                notify_post_published(user_id, platform_name, post.post_id)
                         else:
                             failed_count += 1
                             print(
                                 f"❌ Failed to publish to platform "
                                 f"{account.platform_id}: {result}"
                             )
+                            # Log failure (no notification for failures)
+                            print(f"⚠️ Publish failed for user:{user_id}, post:{post.post_id}, platform:{account.platform_id}")
                 except Exception as e:
                     print(f"❌ Error publishing to account {account_id}: {e}")
                     failed_count += 1
@@ -1783,6 +1878,13 @@ def delete_post(post_id):
 
         print(f"✅ Post {post_id} deleted from database")
         print(f"{'='*60}\n")
+
+        # Notify deletion
+        if NOTIFICATIONS_ENABLED:
+            try:
+                notify_post_deleted(user_id, post_id)
+            except Exception as e:
+                print(f"⚠️ Failed to send deletion notification: {e}")
 
         # Return results including platform deletion status
         return jsonify({
@@ -1928,6 +2030,15 @@ def linked_accounts():
         notification_count=Post.query.filter(Post.status.in_(['pending', 'scheduled'])).count(),
         user_initial=session.get('full_name', user.full_name if user else 'U')[0].upper() if session.get('full_name') or (user and user.full_name) else 'U'
     )
+
+@app.route('/notifications')
+def notifications_page():
+    if 'user_id' not in session:
+        return redirect(url_for('auth.login'))
+
+    return render_template('notifications.html')
+
+
 
 # ---------------------------
 # LINKEDIN AUTH
@@ -2170,6 +2281,13 @@ def linkedin_callback():
             session.modified = True
             print(f" Session restored for user {user.user_id}")
 
+        # Notify account linked
+        if NOTIFICATIONS_ENABLED:
+            try:
+                notify_account_linked(user_id, "LinkedIn")
+            except Exception as e:
+                print(f"⚠️ Failed to send link notification: {e}")
+
         # TEST EXPECTATION 5:
         # Must redirect on success
         return redirect("/linked-accounts")
@@ -2379,6 +2497,13 @@ def callback_twitter():
         print(f" Twitter account linked successfully: {name} (@{username})")
         flash(f"Successfully connected Twitter account: {name} (@{username})", "success")
 
+        # Notify account linked
+        if NOTIFICATIONS_ENABLED:
+            try:
+                notify_account_linked(user_id, "Twitter")
+            except Exception as e:
+                print(f"⚠️ Failed to send link notification: {e}")
+
         return redirect(url_for("linked_accounts"))
 
     except Exception as e:
@@ -2483,9 +2608,18 @@ def disconnect_account(account_id):
     ).first()
 
     if acc:
+        platform = dbs.session.get(Platform, acc.platform_id)
+        platform_name = platform.platform_name if platform else "Account"
         dbs.session.delete(acc)
         dbs.session.commit()
         print(f" Disconnected account {account_id}")
+
+        # Notify account unlinked
+        if NOTIFICATIONS_ENABLED:
+            try:
+                notify_account_unlinked(user_id, platform_name)
+            except Exception as e:
+                print(f"⚠️ Failed to send unlink notification: {e}")
 
     return redirect(url_for('linked_accounts'))
 
@@ -2552,6 +2686,20 @@ atexit.register(lambda: scheduler.shutdown())
 
 print(" Background scheduler started - checking every 30 seconds")
 
+@app.route('/api/current-user')
+def api_current_user():
+    if 'user_id' not in session:
+        return jsonify({
+            "logged_in": False
+        }), 200
+
+    return jsonify({
+        "logged_in": True,
+        "user_id": session['user_id'],
+        "full_name": session.get('full_name', 'User')
+    }), 200
+
+
 
 # ---------------------------
 # RUN SERVER
@@ -2560,5 +2708,3 @@ if __name__ == '__main__':
     with app.app_context():
         dbs.create_all()
     app.run(debug=True, use_reloader=False)  # Disabled auto-reload to prevent constant restarts
-
-

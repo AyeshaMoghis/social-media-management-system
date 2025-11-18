@@ -10,7 +10,7 @@ from flask import (
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import text
 from flask_mail import Message
-from src import oauth  # your OAuth client configured in src/oauth.py (keep as-is)
+# import oauth  # OAuth is handled in app.py, not needed here
 
 auth = Blueprint('auth', __name__, template_folder='templates')
 

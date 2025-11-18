@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Notifications | SMMS</title>
+
+  <!-- Same CSS as your other pages -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  
+  <!-- Additional notification-specific styles -->
+  <style>
+    .filter-tabs {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .tab {
+      padding: 8px 20px;
+      background: white;
+      border: 1px solid #d1d5db;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      color: #6b7280;
+      transition: all 0.2s;
+    }
+
+    .tab:hover {
+      border-color: #0ea5e9;
+      color: #0ea5e9;
+    }
+
+    .tab.active {
+      background: #0ea5e9;
+      color: white;
+      border-color: #0ea5e9;
+    }
+
+    .notifications-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .notification-card {
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-left: 4px solid #10b981;
+      border-radius: 8px;
+      padding: 20px;
+      display: flex;
+      gap: 16px;
+      transition: all 0.2s;
+    }
+
+    .notification-card:hover {
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .notification-card.unread {
+      background: #f0fdf4;
+      border-left-color: #0ea5e9;
+    }
+
+    .notification-card.failure {
+      border-left-color: #ef4444;
+    }
+
+    .notification-card.warning {
+      border-left-color: #f59e0b;
+    }
+
+    .notification-card.success {
+      border-left-color: #10b981;
+    }
+
+    .notification-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      color: white;
+      flex-shrink: 0;
+    }
+
+    .icon-success { background: #10b981; }
+    .icon-failure { background: #ef4444; }
+    .icon-info { background: #6366f1; }
+    .icon-alert { background: #f59e0b; }
+    .icon-blue { background: #3b82f6; }
+    .icon-gray { background: #6b7280; }
+    .icon-teal { background: #14b8a6; }
+    .icon-purple { background: #8b5cf6; }
+
+    .notification-content {
+      flex: 1;
+    }
+
+    .notification-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #111827;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .unread-title {
+      font-weight: 700;
+    }
+
+    .unread-dot {
+      width: 8px;
+      height: 8px;
+      background: #0ea5e9;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .notification-msg {
+      color: #6b7280;
+      font-size: 14px;
+      line-height: 1.5;
+      margin-bottom: 8px;
+    }
+
+    .notification-action-link {
+      color: #0ea5e9;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .notification-action-link:hover {
+      text-decoration: underline;
+    }
+
+    .notification-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 10px;
+    }
+
+    .notification-time {
+      color: #9ca3af;
+      font-size: 13px;
+    }
+
+    .btn-mark-read {
+      padding: 6px 14px;
+      background: #0ea5e9;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-mark-read:hover {
+      background: #0284c7;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      background: white;
+      border-radius: 8px;
+      border: 1px solid #e5e7eb;
+    }
+
+    .empty-icon {
+      font-size: 64px;
+      opacity: 0.3;
+      margin-bottom: 16px;
+    }
+
+    .empty-state h3 {
+      font-size: 20px;
+      color: #374151;
+      margin-bottom: 8px;
+    }
+
+    .empty-state p {
+      color: #9ca3af;
+      font-size: 14px;
+    }
+
+    .loading-state {
+      text-align: center;
+      padding: 60px 20px;
+      background: white;
+      border-radius: 8px;
+      border: 1px solid #e5e7eb;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid #e5e7eb;
+      border-top-color: #0ea5e9;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 16px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .btn-action {
+      display: inline-block;
+      margin-top: 12px;
+      padding: 10px 20px;
+      background: #0ea5e9;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .btn-action:hover {
+      background: #0284c7;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    .btn-clear {
+      padding: 0.5rem 1rem;
+      background: white;
+      border: 1px solid #fca5a5;
+      border-radius: 0.5rem;
+      color: #dc2626;
+      font-size: 0.875rem;
+      cursor: pointer;
+    }
+
+    .btn-clear:hover {
+      background: #fef2f2;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Sidebar - EXACT SAME as linked_accounts.html -->
+  <aside class="sidebar">
+    <div>
+      <h1 class="sidebar-title">SMMS</h1>
+      <nav>
+        <a href="{{ url_for('manager_dashboard') }}" class="nav-item">Dashboard</a>
+        <a href="{{ url_for('team_collaboration') }}" class="nav-item">Team Collaboration</a>
+        <a href="{{ url_for('post_scheduler') }}" class="nav-item">Post Scheduler</a>
+        <a href="{{ url_for('linked_accounts') }}" class="nav-item">Linked Accounts</a>
+        <a href="/notifications" class="nav-item active">Notifications</a>
+      </nav>
+    </div>
+    <a href="{{ url_for('auth.logout') }}" class="logout">Logout</a>
+  </aside>
+
+  <!-- Main -->
+  <main class="main-content">
+    <div class="header">
+      <h1 style="font-size: 1.875rem; font-weight: 600; color: #111827;">Notifications</h1>
+      <div class="user-info">
+        <div class="notification-bell" id="bellBtn">
+          🔔<span class="notification-badge" id="notifCount">0</span>
+        </div>
+        <div class="user-avatar" id="userAvatar">{{ session.full_name[0] if session.full_name else 'U' }}</div>
+        <span id="userName" style="font-weight: 500; color: #111827;">{{ session.full_name or 'User' }}</span>
+      </div>
+    </div>
+
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+      <div style="flex: 1; max-width: 400px;">
+        <input type="text" id="searchInput" placeholder="Search notifications..." 
+               style="width: 100%; padding: 0.5rem 1rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem;">
+      </div>
+      <div class="header-actions">
+        <button id="markReadBtn" class="btn-outline">Mark all as read</button>
+        <button id="clearAllBtn" class="btn-clear">Clear all</button>
+      </div>
+    </div>
+
+    <!-- Filter tabs -->
+    <div class="filter-tabs">
+      <div class="tab active" data-filter="all">All <span id="countAll">(0)</span></div>
+      <div class="tab" data-filter="system">System <span id="countSystem">(0)</span></div>
+      <div class="tab" data-filter="team">Team <span id="countTeam">(0)</span></div>
+    </div>
+
+    <!-- Notifications list -->
+    <div id="notificationsList" class="notifications-list">
+      <div class="loading-state">
+        <div class="spinner"></div>
+        <p>Loading notifications...</p>
+      </div>
+    </div>
+  </main>
+
+  <script src="{{ url_for('static', filename='js/notification_script.js') }}"></script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
