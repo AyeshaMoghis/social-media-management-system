@@ -770,7 +770,7 @@ def check_and_publish_scheduled_posts():
 # IMPORT AUTH BLUEPRINT
 # ---------------------------
 # Import auth blueprint (from same directory)
-from auth import auth, init_auth
+from auth_old import auth, init_auth
 
 from src.auth.oauth import oauth as oauth_blueprint
 app.register_blueprint(oauth_blueprint)
