@@ -52,3 +52,7 @@ logs/
 # OS files
 Thumbs.db
 desktop.ini
+
+# Any local env file except the committed template
+.env.*
+!.env.example
